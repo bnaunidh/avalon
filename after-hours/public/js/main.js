@@ -1,8 +1,9 @@
 // Client: lobby UI, networking, local movement, interactions, HUD.
-import { T, F, PLAYER, COLORS, DIFFICULTY, ITEM_NAMES } from '/shared/constants.js';
-import { solidAt, los } from '/shared/grid.js';
+import { T, F, PLAYER, COLORS, DIFFICULTY, ITEM_NAMES } from '../shared/constants.js';
+import { solidAt, los } from '../shared/grid.js';
 import { Sound } from './audio.js';
 import { Renderer } from './render.js';
+import { LocalLink } from './local.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -34,8 +35,10 @@ const store = {
   },
 };
 
+// Static hosting (GitHub Pages, file://) has no game server: run solo in the page.
+const STATIC_HOST = location.protocol === 'file:' || location.hostname.endsWith('github.io') || new URLSearchParams(location.search).has('solo');
 const S = {
-  myId: null, screen: 'menu', ws: null, name: '',
+  myId: null, screen: 'menu', ws: null, name: '', solo: STATIC_HOST,
   lobby: null, addrs: [],
   map: null, players: new Map(), monsters: [], items: [], clocks: [],
   me: null, specId: null,
@@ -86,15 +89,26 @@ function refreshSwatches() {
   for (const b of $('colors').children) b.classList.toggle('on', b.dataset.c === myColor);
 }
 refreshSwatches();
-$('join').onclick = join;
+$('join').onclick = () => join(STATIC_HOST);
+$('solo').onclick = () => join(true);
+$('soloInstead').onclick = () => {
+  S.ws = null;
+  join(true);
+};
+if (STATIC_HOST) {
+  $('join').textContent = 'Enter the school (solo)';
+  $('solo').classList.add('hidden');
+  $('staticNote').classList.remove('hidden');
+}
 $('name').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') join();
+  if (e.key === 'Enter') join(STATIC_HOST);
 });
 $('reconnect').onclick = () => location.reload();
 $('name').focus();
 
-function join() {
+function join(solo) {
   A.init();
+  S.solo = !!solo;
   const name = $('name').value.trim().slice(0, 16) || 'Student';
   store.set('ah_name', name);
   store.set('ah_color', myColor);
@@ -153,6 +167,9 @@ function renderLobby() {
   else note = 'Waiting for the host to lock the doors…';
   $('lobbyNote').textContent = note;
   $('startBtn').disabled = lb.phase !== 'lobby';
+  $('invite').classList.toggle('hidden', S.solo);
+  $('readyBtn').classList.toggle('hidden', S.solo);
+  $('soloNote').classList.toggle('hidden', !S.solo);
   const addrs = S.addrs.length ? S.addrs : [location.origin];
   $('addrs').innerHTML = addrs.map((a) => `<div>${esc(a)}</div>`).join('');
 }
@@ -164,7 +181,7 @@ function connect(onOpen) {
     return;
   }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  const ws = S.solo ? new LocalLink() : new WebSocket(`${proto}://${location.host}/ws`);
   S.ws = ws;
   ws.onopen = onOpen;
   ws.onmessage = (e) => {

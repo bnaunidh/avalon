@@ -9,7 +9,15 @@ school and must find the fuses, restore the power, and get out the front doors b
 No installs, no accounts, no assets to download: one computer runs a tiny Node.js server and
 everyone else just opens a browser.
 
-## Quick start
+## Play in your browser (solo)
+
+**https://bnaunidh.github.io/avalon/** — a single-player version running entirely in the page
+(GitHub Pages can't host the multiplayer server). For co-op with friends, run the server below.
+
+To rebuild the static site: `node tools/build-pages.mjs` writes it to `dist/`, which is published
+on the `gh-pages` branch. Adding `?solo` to any URL forces solo mode.
+
+## Quick start (LAN multiplayer)
 
 You need [Node.js](https://nodejs.org) 18 or newer on the computer that hosts.
 

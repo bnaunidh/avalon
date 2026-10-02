@@ -1,6 +1,6 @@
 // Canvas renderer: a pre-drawn school, ray-cast flashlights and a darkness mask.
-import { T, F, FSOLID } from '/shared/constants.js';
-import { castRay, los, opaqueAt } from '/shared/grid.js';
+import { T, F, FSOLID } from '../shared/constants.js';
+import { castRay, los, opaqueAt } from '../shared/grid.js';
 
 const MS = 48; // pixels per tile in the pre-rendered map
 const MON_SCALE = 1.45; // The Hall Monitor is a lot bigger than you

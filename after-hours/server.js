@@ -22,7 +22,8 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
 };
-const STATIC = { '/shared/': path.join(ROOT, 'shared'), '/': path.join(ROOT, 'public') };
+// /server/ is served too: the browser runs the same game code in solo mode.
+const STATIC = { '/shared/': path.join(ROOT, 'shared'), '/server/': path.join(ROOT, 'server'), '/': path.join(ROOT, 'public') };
 
 const server = http.createServer((req, res) => {
   let url;
@@ -33,7 +34,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url === '/') url = '/index.html';
-  const prefix = url.startsWith('/shared/') ? '/shared/' : '/';
+  const prefix = Object.keys(STATIC).find((p) => p !== '/' && url.startsWith(p)) || '/';
   const base = STATIC[prefix];
   const file = path.normalize(path.join(base, url.slice(prefix.length)));
   if (!file.startsWith(base + path.sep)) {

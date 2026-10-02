@@ -186,3 +186,7 @@ input:focus, select:focus { border-color: var(--blood); box-shadow: 0 0 0 2px rg
 #endList .fate.taken { color: var(--blood-hi); }
 #endList .ttl { grid-column: 2 / 4; color: var(--gold); font-size: 13px; }
 #endList .stats { grid-column: 2 / 4; color: var(--dim); font-size: 12px; }
+
+.btn.wide { width: 100%; margin-top: 10px; }
+.hint a { color: var(--gold); }
+.hint code { color: var(--gold); }

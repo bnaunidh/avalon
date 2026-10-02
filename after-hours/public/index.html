@@ -19,6 +19,8 @@
       <label>Jacket</label>
       <div id="colors" class="colors"></div>
       <button id="join" class="btn big">Enter the school</button>
+      <button id="solo" class="btn wide">Play solo (offline)</button>
+      <p id="staticNote" class="hint hidden">This web version is single-player.<br>For LAN multiplayer, run the server from <a href="https://github.com/bnaunidh/avalon/tree/claude/exciting-brahmagupta-hodg6q/after-hours">the repo</a>.</p>
       <p class="hint">Headphones on. Lights off.</p>
     </div>
   </div>
@@ -38,7 +40,8 @@
         <select id="diff"></select>
       </div>
       <p id="lobbyNote" class="hint"></p>
-      <div class="invite">
+      <p id="soloNote" class="hint hidden">Solo mode — just you and it.<br>For LAN multiplayer, run <code>node server.js</code> (see the <a href="https://github.com/bnaunidh/avalon/tree/claude/exciting-brahmagupta-hodg6q/after-hours">README</a>).</p>
+      <div class="invite" id="invite">
         <div>Friends on the same Wi-Fi / LAN open:</div>
         <div id="addrs"></div>
       </div>
@@ -128,6 +131,7 @@
     <h2>The line went dead.</h2>
     <p>Lost connection to the server.</p>
     <button class="btn" id="reconnect">Reconnect</button>
+    <button class="btn" id="soloInstead">Play solo instead</button>
   </div>
 </section>
 
