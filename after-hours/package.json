@@ -1,0 +1,13 @@
+{
+  "name": "after-hours",
+  "version": "1.0.0",
+  "description": "LAN co-op horror: survive the night in a locked school with The Hall Monitor.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
