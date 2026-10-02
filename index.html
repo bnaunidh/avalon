@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>After Hours</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<section id="menu" class="screen">
+  <div class="menu-inner">
+    <h1 class="title" data-text="AFTER HOURS">AFTER HOURS</h1>
+    <p class="tag">You fell asleep in detention.<br>The school is locked for the night.<br><span class="blood">Something is walking the halls.</span></p>
+    <div class="card">
+      <label for="name">Your name</label>
+      <input id="name" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Student">
+      <label>Jacket</label>
+      <div id="colors" class="colors"></div>
+      <button id="join" class="btn big">Enter the school</button>
+      <button id="solo" class="btn wide">Play solo (offline)</button>
+      <p id="staticNote" class="hint hidden">This web version is single-player.<br>For LAN multiplayer, run the server from <a href="https://github.com/bnaunidh/avalon/tree/claude/exciting-brahmagupta-hodg6q/after-hours">the repo</a>.</p>
+      <p class="hint">Headphones on. Lights off.</p>
+    </div>
+  </div>
+</section>
+
+<section id="lobby" class="screen hidden">
+  <div class="lobby-grid">
+    <div class="panel">
+      <h2>Detention roll call</h2>
+      <ul id="plist"></ul>
+      <div class="row">
+        <button id="readyBtn" class="btn">I'm ready</button>
+        <button id="startBtn" class="btn red">Lock the doors</button>
+      </div>
+      <div class="row">
+        <label for="diff">Difficulty</label>
+        <select id="diff"></select>
+      </div>
+      <p id="lobbyNote" class="hint"></p>
+      <p id="soloNote" class="hint hidden">Solo mode — just you and it.<br>For LAN multiplayer, run <code>node server.js</code> (see the <a href="https://github.com/bnaunidh/avalon/tree/claude/exciting-brahmagupta-hodg6q/after-hours">README</a>).</p>
+      <div class="invite" id="invite">
+        <div>Friends on the same Wi-Fi / LAN open:</div>
+        <div id="addrs"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>How to survive the night</h2>
+      <ul class="rules">
+        <li>Find the <b>fuses</b> hidden around the school and bring them to the <b>fuse box</b> in the Boiler Room.</li>
+        <li>When the power comes back on, the <b>front doors unlock</b>. Everyone gets out — or nobody does.</li>
+        <li><b>The Hall Monitor</b> hears running and sees light. Walk. Crouch. Kill your flashlight when it's close.</li>
+        <li>Hide in <b>lockers</b> and closets. If it stops right outside, <b>hold your breath</b>.</li>
+        <li>Caught? Crawl. A friend can <b>revive</b> you before it comes back.</li>
+      </ul>
+      <table class="keys">
+        <tr><td>WASD</td><td>move</td><td>Shift</td><td>run (loud!)</td></tr>
+        <tr><td>Mouse</td><td>aim flashlight</td><td>C</td><td>crouch (silent)</td></tr>
+        <tr><td>F</td><td>flashlight</td><td>E</td><td>doors · hide · revive · fuses</td></tr>
+        <tr><td>Space</td><td>hold breath</td><td>G</td><td>throw alarm clock</td></tr>
+        <tr><td>Q</td><td>energy drink</td><td>M</td><td>map</td></tr>
+        <tr><td>Enter</td><td>chat</td><td>H</td><td>help</td></tr>
+      </table>
+    </div>
+    <div class="panel chatpanel">
+      <h2>Whispers</h2>
+      <div id="lchat" class="chatlog"></div>
+      <input id="lchatIn" maxlength="140" autocomplete="off" placeholder="Say something…">
+    </div>
+  </div>
+</section>
+
+<div id="hud" class="hidden">
+  <div id="topleft">
+    <div id="obj"></div>
+    <div id="loc"></div>
+  </div>
+  <div id="topright">
+    <div id="clock"></div>
+    <ul id="team"></ul>
+  </div>
+  <div id="pa" class="hidden"></div>
+  <div id="center"><div id="bigmsg"></div><div id="submsg"></div></div>
+  <div id="eye" class="hidden"><div class="eyeball"><div class="pupil"></div></div><span id="eyeText"></span></div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="downmsg" class="hidden"></div>
+  <div id="spec" class="hidden"></div>
+  <div id="bottomleft">
+    <div id="chatlog" class="chatlog"></div>
+    <input id="chatIn" class="hidden" maxlength="140" autocomplete="off" placeholder="Enter to send · Esc to cancel">
+    <div id="bars">
+      <div class="bar"><span>LIGHT</span><div class="track"><div id="bBattery"></div></div></div>
+      <div class="bar"><span>STAMINA</span><div class="track"><div id="bStamina"></div></div></div>
+      <div class="bar hidden" id="breathBar"><span>BREATH</span><div class="track"><div id="bBreath"></div></div></div>
+    </div>
+    <div id="inv"></div>
+  </div>
+  <div id="help" class="hidden">
+    <h3>Controls</h3>
+    <table class="keys">
+      <tr><td>WASD</td><td>move</td></tr>
+      <tr><td>Shift</td><td>run — it hears you</td></tr>
+      <tr><td>C</td><td>crouch — silent, harder to see</td></tr>
+      <tr><td>Mouse</td><td>aim flashlight</td></tr>
+      <tr><td>F</td><td>flashlight — it sees light</td></tr>
+      <tr><td>E</td><td>doors · hide · revive · fuses</td></tr>
+      <tr><td>Space</td><td>hold your breath (hidden)</td></tr>
+      <tr><td>G</td><td>throw alarm clock (distraction)</td></tr>
+      <tr><td>Q</td><td>energy drink</td></tr>
+      <tr><td>M</td><td>school map</td></tr>
+      <tr><td>Enter</td><td>chat</td></tr>
+    </table>
+    <p class="hint">[H] toggle this card</p>
+  </div>
+</div>
+
+<section id="end" class="screen hidden">
+  <div class="end-inner">
+    <h1 id="endTitle"></h1>
+    <p id="endSub"></p>
+    <ul id="endList"></ul>
+    <p id="endTimer" class="hint"></p>
+  </div>
+</section>
+
+<section id="conn" class="screen hidden">
+  <div class="end-inner">
+    <h2>The line went dead.</h2>
+    <p>Lost connection to the server.</p>
+    <button class="btn" id="reconnect">Reconnect</button>
+    <button class="btn" id="soloInstead">Play solo instead</button>
+  </div>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
