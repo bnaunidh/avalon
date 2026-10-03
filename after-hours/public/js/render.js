@@ -78,7 +78,9 @@ function text(g, str, x, y, sizeTiles, color, rot = 0, font = 'bold', align = 'c
 }
 
 // ------------------------------------------------------------------ pre-render
-function prerender(map) {
+// floorOnly: just floors and flat clutter, used as the floor texture of the 3D view.
+function prerender(map, { ms = MS, floorOnly = false } = {}) {
+  const MS = ms;
   const W = map.w;
   const H = map.h;
   const c = document.createElement('canvas');
@@ -240,6 +242,7 @@ function prerender(map) {
       const i = y * W + x;
       const k = map.furn[i];
       if (!k || seen[i]) continue;
+      if (floorOnly && FSOLID[k]) continue;
       if (multi.has(k)) {
         // flood the component (straight runs / rectangles)
         let x1 = x;
@@ -258,6 +261,8 @@ function prerender(map) {
       }
     }
   }
+
+  if (floorOnly) return c;
 
   // walls
   for (let y = 0; y < H; y++) {
@@ -1039,7 +1044,7 @@ export class Renderer {
 
   setMap(map) {
     this.map = map;
-    this.img = prerender(map);
+    this.img = null; // built lazily: the 3D view never needs the top-down image
     this.statics = map.lights.map((l) => {
       const full = l.arc >= 6;
       const pts = full ? rayPoly(map, l.x, l.y, 0, TAU, 40, l.r, 0.1) : rayPoly(map, l.x, l.y, l.a - l.arc / 2, l.a + l.arc / 2, 22, l.r, 0.1);
@@ -1386,6 +1391,7 @@ export class Renderer {
     g.fillRect(0, 0, W, H);
 
     // pre-rendered map, clipped to the image bounds
+    if (!this.img) this.img = prerender(m);
     {
       const k = MS / ts;
       let sx0 = (vx0 - sx / ts) * MS;
@@ -1837,4 +1843,8 @@ export class Renderer {
     g.globalAlpha = 1;
     g.setTransform(1, 0, 0, 1, 0, 0);
   }
+}
+
+export function prerenderFloor(map) {
+  return prerender(map, { ms: 32, floorOnly: true });
 }

@@ -14,6 +14,8 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--mono); overflow: hidden; }
 canvas#game { position: fixed; inset: 0; display: block; cursor: crosshair; }
+canvas#game.fp { cursor: pointer; }
+canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 .hidden { display: none !important; }
 
 .screen {
@@ -190,3 +192,4 @@ input:focus, select:focus { border-color: var(--blood); box-shadow: 0 0 0 2px rg
 .btn.wide { width: 100%; margin-top: 10px; }
 .hint a { color: var(--gold); }
 .hint code { color: var(--gold); }
+#lockhint { position: absolute; top: 46%; left: 0; right: 0; text-align: center; font-size: 18px; color: #e8dcc0; letter-spacing: 0.08em; animation: pulse 1.2s infinite alternate; }

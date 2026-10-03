@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<canvas id="gl"></canvas>
 <canvas id="game"></canvas>
 
 <section id="menu" class="screen">
@@ -57,11 +58,12 @@
       </ul>
       <table class="keys">
         <tr><td>WASD</td><td>move</td><td>Shift</td><td>run (loud!)</td></tr>
-        <tr><td>Mouse</td><td>aim flashlight</td><td>C</td><td>crouch (silent)</td></tr>
+        <tr><td>Mouse</td><td>look / aim flashlight</td><td>C</td><td>crouch (silent)</td></tr>
         <tr><td>F</td><td>flashlight</td><td>E</td><td>doors · hide · revive · fuses</td></tr>
         <tr><td>Space</td><td>hold breath</td><td>G</td><td>throw alarm clock</td></tr>
         <tr><td>Q</td><td>energy drink</td><td>M</td><td>map</td></tr>
         <tr><td>Enter</td><td>chat</td><td>H</td><td>help</td></tr>
+        <tr><td>V</td><td>3D / top-down view</td><td>Click</td><td>capture mouse</td></tr>
       </table>
     </div>
     <div class="panel chatpanel">
@@ -85,6 +87,7 @@
   <div id="center"><div id="bigmsg"></div><div id="submsg"></div></div>
   <div id="eye" class="hidden"><div class="eyeball"><div class="pupil"></div></div><span id="eyeText"></span></div>
   <div id="prompt"></div>
+  <div id="lockhint" class="hidden">Click to look around · Esc frees the mouse</div>
   <div id="toast"></div>
   <div id="downmsg" class="hidden"></div>
   <div id="spec" class="hidden"></div>
@@ -104,7 +107,7 @@
       <tr><td>WASD</td><td>move</td></tr>
       <tr><td>Shift</td><td>run — it hears you</td></tr>
       <tr><td>C</td><td>crouch — silent, harder to see</td></tr>
-      <tr><td>Mouse</td><td>aim flashlight</td></tr>
+      <tr><td>Mouse</td><td>look (click to capture)</td></tr>
       <tr><td>F</td><td>flashlight — it sees light</td></tr>
       <tr><td>E</td><td>doors · hide · revive · fuses</td></tr>
       <tr><td>Space</td><td>hold your breath (hidden)</td></tr>
@@ -112,6 +115,7 @@
       <tr><td>Q</td><td>energy drink</td></tr>
       <tr><td>M</td><td>school map</td></tr>
       <tr><td>Enter</td><td>chat</td></tr>
+      <tr><td>V</td><td>3D / top-down view</td></tr>
     </table>
     <p class="hint">[H] toggle this card</p>
   </div>

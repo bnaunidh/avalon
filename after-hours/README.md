@@ -2,7 +2,7 @@
 
 *You fell asleep in detention. The school is locked for the night. Something is walking the halls.*
 
-A top-down, co-op horror game for your local network. 1–8 players wake up in a pitch-black
+A first-person 3D co-op horror game for your local network. 1–8 players wake up in a pitch-black
 school and must find the fuses, restore the power, and get out the front doors before
 **The Hall Monitor** collects them.
 
@@ -64,7 +64,8 @@ Watch the eye at the top of the screen: it opens as the Hall Monitor notices you
 | Key | Action |
 | --- | --- |
 | `WASD` / arrows | move |
-| Mouse | aim flashlight |
+| Mouse | look around / aim flashlight (click the game to capture the mouse, Esc to release) |
+| `←` `→` | turn (3D view) |
 | `Shift` | run (loud!) |
 | `C` | toggle crouch (silent, harder to see) |
 | `F` | flashlight on/off |
@@ -75,6 +76,10 @@ Watch the eye at the top of the screen: it opens as the Hall Monitor notices you
 | `M` / `Tab` | map of the places you've seen |
 | `Enter` | chat |
 | `H` | show/hide the controls card |
+| `V` | switch between first-person 3D and the top-down view |
+
+The game runs in first-person 3D (three.js / WebGL). Computers without WebGL automatically get
+the top-down view, and anyone can switch with `V`.
 
 ## Difficulty
 
@@ -114,7 +119,9 @@ after-hours/
   server/game.js       authoritative simulation and the Hall Monitor's AI
   server/pathfind.js   A* for the monster
   shared/              constants and ray-casting shared by server and client
-  public/js/render.js  canvas renderer: ray-cast flashlights, darkness mask, jumpscare
+  public/js/render3d.js first-person 3D renderer (three.js): school geometry, shadowed flashlight, monster
+  public/js/render.js  top-down renderer, map overlay, jumpscare; also paints the 3D floor texture
+  public/vendor/       three.js r186 (MIT), bundled so LAN games work offline
   public/js/audio.js   every sound is synthesized live with WebAudio
   public/js/main.js    lobby, networking, movement, HUD
 ```

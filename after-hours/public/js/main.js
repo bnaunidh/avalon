@@ -8,6 +8,15 @@ import { LocalLink } from './local.js';
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
 const R = new Renderer(canvas);
+// First-person 3D view (three.js). Falls back to the top-down view without WebGL.
+let R3 = null;
+try {
+  const mod = await import('./render3d.js');
+  R3 = new mod.Renderer3D($('gl'));
+} catch (err) {
+  console.warn('3D view unavailable, using top-down view:', err);
+}
+const LOOK_SENS = 0.0024;
 const A = new Sound();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -39,6 +48,7 @@ const store = {
 const STATIC_HOST = location.protocol === 'file:' || location.hostname.endsWith('github.io') || new URLSearchParams(location.search).has('solo');
 const S = {
   myId: null, screen: 'menu', ws: null, name: '', solo: STATIC_HOST,
+  view3d: false, yaw: 0, pitch: 0, hideYaw: 0,
   lobby: null, addrs: [],
   map: null, players: new Map(), monsters: [], items: [], clocks: [],
   me: null, specId: null,
@@ -57,7 +67,22 @@ function resetLocal() {
   });
 }
 resetLocal();
+S.view3d = !!R3 && store.get('ah_view', '3d') !== '2d';
 const keys = new Set();
+const angDelta = (a, b) => {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+};
+function applyViewMode() {
+  $('gl').classList.toggle('hidden', !S.view3d);
+  canvas.classList.toggle('fp', S.view3d);
+  if (!S.view3d && document.pointerLockElement) document.exitPointerLock();
+}
+function locked() {
+  return document.pointerLockElement === canvas;
+}
 const mouse = { x: innerWidth / 2, y: innerHeight / 2 };
 
 // ------------------------------------------------------------------ screens
@@ -66,13 +91,15 @@ function showScreen(name) {
   for (const id of ['menu', 'lobby', 'end', 'conn']) $(id).classList.toggle('hidden', id !== name);
   $('hud').classList.toggle('hidden', name !== 'game');
   canvas.style.visibility = name === 'game' ? 'visible' : 'hidden';
+  $('gl').style.visibility = name === 'game' ? 'visible' : 'hidden';
+  if (name !== 'game' && document.pointerLockElement) document.exitPointerLock();
   if (name !== 'game') closeChat();
 }
 
 // ------------------------------------------------------------------ menu
 let myColor = store.get('ah_color', COLORS[0]);
 if (!COLORS.includes(myColor)) myColor = COLORS[0];
-$('name').value = store.get('ah_name', '');
+if (!$('name').value) $('name').value = store.get('ah_name', '');
 for (const c of COLORS) {
   const b = document.createElement('button');
   b.className = 'swatch';
@@ -277,7 +304,12 @@ function startRound(m) {
   S.awake = m.monsters.some((mm) => mm.st !== 'dormant');
   S.specId = null;
   resetLocal();
+  map.fusesNeeded = m.fusesNeeded;
   R.setMap(map);
+  if (R3) R3.setMap(map);
+  applyViewMode();
+  S.yaw = S.me ? S.me.a : 0;
+  S.pitch = 0;
   const v = S.me || [...S.players.values()][0] || { x: map.w / 2, y: map.h / 2 };
   S.cam.x = v.x;
   S.cam.y = v.y;
@@ -368,7 +400,16 @@ function onEvent(e) {
         p.y = p.ty = e.y;
       }
       A.locker(e.x, e.y);
-      if (p === me) L.holding = false;
+      if (p === me) {
+        L.holding = false;
+        if (e.h >= 0) {
+          // face out of the locker
+          const h = map.hides[e.h];
+          const d = [[0, -1], [1, 0], [0, 1], [-1, 0]][h.dir];
+          S.hideYaw = S.yaw = Math.atan2(d[1], d[0]);
+          S.pitch = 0;
+        }
+      }
       break;
     }
     case 'down': {
@@ -615,6 +656,15 @@ addEventListener('keydown', (e) => {
     case 'KeyM':
     case 'Tab': S.showMap = !S.showMap; break;
     case 'KeyH': setHelp(!S.showHelp); break;
+    case 'KeyV':
+      if (R3) {
+        S.view3d = !S.view3d;
+        store.set('ah_view', S.view3d ? '3d' : '2d');
+        if (S.me) S.yaw = S.me.a;
+        applyViewMode();
+        toast(S.view3d ? 'First-person view — click to look around' : 'Top-down view');
+      }
+      break;
     case 'Space': if (spectating()) cycleSpec(); break;
     case 'Escape':
       S.showMap = false;
@@ -634,13 +684,27 @@ addEventListener('blur', () => {
 canvas.addEventListener('mousemove', (e) => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
+  if (locked() && !S.chatOpen) {
+    S.yaw += e.movementX * LOOK_SENS;
+    S.pitch = clamp(S.pitch - e.movementY * LOOK_SENS, -1.1, 1.1);
+  }
 });
 canvas.addEventListener('mousedown', () => {
   A.init();
   if (spectating()) cycleSpec();
+  else if (S.view3d && !locked() && S.screen === 'game') {
+    try {
+      canvas.requestPointerLock()?.catch?.(() => {});
+    } catch {
+      /* pointer lock unsupported */
+    }
+  }
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-addEventListener('resize', () => R.resize());
+addEventListener('resize', () => {
+  R.resize();
+  R3?.resize();
+});
 
 function cycleSpec() {
   const list = [...S.players.values()].filter((p) => p !== S.me && (p.st === 'alive' || p.st === 'down'));
@@ -666,7 +730,7 @@ function throwClock() {
     toast('No alarm clocks. Find one to distract it.');
     return;
   }
-  const w = screenToWorld(mouse.x, mouse.y);
+  const w = S.view3d ? { x: me.x + Math.cos(me.a) * 7, y: me.y + Math.sin(me.a) * 7 } : screenToWorld(mouse.x, mouse.y);
   send({ t: 'throw', x: r2(w.x), y: r2(w.y) });
   me.inv[1]--;
 }
@@ -799,7 +863,14 @@ function localUpdate(dt) {
   const map = S.map;
   const psx = R.W / 2 + (me.x - S.cam.x) * R.ts;
   const psy = R.H / 2 + (me.y - S.cam.y) * R.ts;
-  if (!S.chatOpen) me.a = Math.atan2(mouse.y - psy, mouse.x - psx);
+  if (!S.chatOpen) {
+    if (S.view3d) {
+      if (keys.has('ArrowLeft')) S.yaw -= dt * 2.4;
+      if (keys.has('ArrowRight')) S.yaw += dt * 2.4;
+      if (me.h >= 0) S.yaw = S.hideYaw + clamp(angDelta(S.yaw, S.hideYaw), -0.9, 0.9);
+      me.a = S.yaw;
+    } else me.a = Math.atan2(mouse.y - psy, mouse.x - psx);
+  }
   L.drinkT = Math.max(0, L.drinkT - dt);
 
   if (me.h >= 0) {
@@ -828,7 +899,21 @@ function localUpdate(dt) {
 
   let ix = 0;
   let iy = 0;
-  if (!S.chatOpen) {
+  if (!S.chatOpen && S.view3d) {
+    // move relative to where you are looking
+    let f = 0;
+    let st = 0;
+    if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1;
+    if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1;
+    if (keys.has('KeyD')) st += 1;
+    if (keys.has('KeyA')) st -= 1;
+    const ca = Math.cos(me.a);
+    const sa = Math.sin(me.a);
+    ix = ca * f - sa * st;
+    iy = sa * f + ca * st;
+    if (Math.abs(ix) < 1e-6) ix = 0;
+    if (Math.abs(iy) < 1e-6) iy = 0;
+  } else if (!S.chatOpen) {
     if (keys.has('KeyW') || keys.has('ArrowUp')) iy -= 1;
     if (keys.has('KeyS') || keys.has('ArrowDown')) iy += 1;
     if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1;
@@ -985,7 +1070,7 @@ function update(dt) {
   // camera with a little look-ahead toward the cursor
   let tx = v.x;
   let ty = v.y;
-  if (v === me && me.st === 'alive' && me.h < 0) {
+  if (!S.view3d && v === me && me.st === 'alive' && me.h < 0) {
     const lx = clamp((mouse.x - R.W / 2) / R.ts, -6, 6) * 0.22;
     const ly = clamp((mouse.y - R.H / 2) / R.ts, -6, 6) * 0.22;
     tx += lx;
@@ -1021,7 +1106,8 @@ function update(dt) {
   S.shake = Math.max(0, S.shake - dt * 22);
   S.flash = Math.max(0, S.flash - dt * 1.5);
 
-  A.setListener(v.x, v.y, (x, y) => los(map, v.x, v.y, x, y));
+  const viewYaw = v === me ? me.a : v.a || 0;
+  A.setListener(v.x, v.y, (x, y) => los(map, v.x, v.y, x, y), S.view3d ? viewYaw : -Math.PI / 2);
   const active = !!me && (me.st === 'alive' || me.st === 'down');
   A.update(dt, { danger, chase: S.chaseLevel, dark: v.fl ? 0 : 1, hidden: v.h >= 0, active: active || spectating() });
 
@@ -1084,6 +1170,8 @@ function update(dt) {
     fl: v === me ? (me.h < 0 && L.fl && L.battery > 0) : v.fl && v.h < 0,
     flick: v === me ? S.flick : 1, hidden: v.h >= 0, me: v,
     chase: S.chaseLevel, shake: S.shake, flash: S.flash,
+    yaw: viewYaw, pitch: v === me ? S.pitch : 0, cr: !!v.cr, down: v.st === 'down',
+    hide: v.h >= 0 ? map.hides[v.h] : null, moving: !!v.mv, sprint: !!v.sp, walk: v.walk || 0,
   };
 
   L.hudT -= dt;
@@ -1152,6 +1240,7 @@ function updateHud(v, nearest) {
     }`;
   }
   $('hud').classList.toggle('mapopen', S.showMap);
+  $('lockhint').classList.toggle('hidden', !(S.view3d && !locked() && !spectating() && !S.chatOpen && !S.showMap));
 
   // prompt
   const pr = $('prompt');
@@ -1194,12 +1283,15 @@ function updateHud(v, nearest) {
   } else spec.classList.add('hidden');
 }
 
-function draw() {
+function draw(dt) {
   if (S.scare) {
     R.drawScare(Math.min(1, S.scare.t / S.scare.dur));
     return;
   }
-  R.frame(S, S.view);
+  if (S.view3d && R3) {
+    R3.frame(S, S.view, dt);
+    R3.overlay(R, S, S.view);
+  } else R.frame(S, S.view);
   if (S.showMap) R.drawMap(S, S.view);
 }
 
@@ -1210,7 +1302,7 @@ function loop(now) {
   if (S.screen === 'game' && S.map) {
     try {
       update(dt);
-      draw();
+      draw(dt);
     } catch (err) {
       console.error(err);
     }
@@ -1219,4 +1311,5 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 showScreen('menu');
+applyViewMode();
 if (new URLSearchParams(location.search).has('debug')) window.__ah = { S, L, R, A, send, interact };

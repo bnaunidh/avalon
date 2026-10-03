@@ -66,10 +66,12 @@ export class Sound {
     return c;
   }
 
-  setListener(x, y, losFn) {
+  // yaw: the direction the listener faces (map angle); sounds pan relative to it.
+  setListener(x, y, losFn, yaw = -Math.PI / 2) {
     this.lx = x;
     this.ly = y;
     this.losFn = losFn;
+    this.yaw = yaw;
   }
 
   setVolume(v) {
@@ -98,7 +100,8 @@ export class Sound {
     let head = g;
     if (ctx.createStereoPanner) {
       const p = ctx.createStereoPanner();
-      p.pan.value = clamp(dx / 7, -0.85, 0.85);
+      const yaw = this.yaw ?? -Math.PI / 2;
+      p.pan.value = clamp((dx * -Math.sin(yaw) + dy * Math.cos(yaw)) / 7, -0.85, 0.85);
       g.connect(p);
       p.connect(this.master);
     } else g.connect(this.master);
