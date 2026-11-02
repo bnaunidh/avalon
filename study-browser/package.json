@@ -1,0 +1,37 @@
+{
+  "name": "study-desk-browser",
+  "version": "1.0.0",
+  "description": "A focused desktop browser for online tutoring — opens Cuemath or any site, with a built-in scientific calculator, a step-by-step AI math tutor, quick-text snippets, focus mode, and local audio/camera controls.",
+  "main": "src/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac dmg",
+    "dist:dir": "electron-builder --mac dir"
+  },
+  "devDependencies": {
+    "electron": "33.2.0",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.studydesk.browser",
+    "productName": "Study Desk Browser",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.education",
+      "identity": null
+    },
+    "dmg": {
+      "title": "Study Desk Browser"
+    }
+  }
+}

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Study Desk Browser</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="shell">
+    <!-- Top chrome -->
+    <header id="chrome">
+      <div class="nav">
+        <button class="ico" id="back" title="Back" aria-label="Back">‹</button>
+        <button class="ico" id="fwd" title="Forward" aria-label="Forward">›</button>
+        <button class="ico" id="reload" title="Reload" aria-label="Reload">⟳</button>
+        <button class="ico" id="home" title="Home" aria-label="Home">⌂</button>
+      </div>
+      <form id="addressForm" class="address">
+        <input id="address" type="text" spellcheck="false" placeholder="Search or type a web address" autocomplete="off">
+      </form>
+      <div class="av" id="avControls">
+        <button class="ico av-btn" id="muteAudio" title="Mute this page's sound (your speakers only)"><span class="g">🔊</span></button>
+        <button class="ico av-btn on" id="micBtn" title="Your microphone"><span class="g">🎙️</span></button>
+        <button class="ico av-btn on" id="camBtn" title="Your camera"><span class="g">🎥</span></button>
+        <button class="ico av-btn" id="hideVid" title="Hide video on your screen"><span class="g">🙈</span></button>
+      </div>
+      <div class="feat">
+        <button class="ico feat-btn" data-panel="calc" title="Calculator">🧮</button>
+        <button class="ico feat-btn" data-panel="tutor" title="Math tutor">🎓</button>
+        <button class="ico feat-btn" data-panel="snips" title="Quick text">⚡</button>
+        <button class="ico feat-btn" data-panel="settings" title="Settings">⚙️</button>
+        <button class="ico" id="focusBtn" title="Focus mode (hide everything but the page)">⛶</button>
+      </div>
+    </header>
+
+    <div id="body">
+      <webview id="view" partition="persist:web" allowpopups
+               webpreferences="contextIsolation=no, sandbox=no, nativeWindowOpen=yes"></webview>
+
+      <!-- Feature drawer -->
+      <aside id="drawer" hidden>
+        <div class="drawer-head">
+          <h2 id="drawerTitle">Calculator</h2>
+          <button class="ico" id="drawerClose" title="Close">✕</button>
+        </div>
+        <div class="drawer-body">
+
+          <!-- Calculator -->
+          <section class="pane" data-pane="calc">
+            <div class="calc">
+              <div class="calc-top">
+                <span class="muted small">SCIENTIFIC</span>
+                <div class="deg" id="angleToggle">
+                  <button data-ang="deg" class="on">DEG</button>
+                  <button data-ang="rad">RAD</button>
+                </div>
+              </div>
+              <div class="display">
+                <div class="expr" id="calcExpr">&nbsp;</div>
+                <div class="out" id="calcOut">0</div>
+              </div>
+              <div class="keys" id="calcKeys">
+                <button class="k fn" data-ins="sin(">sin</button>
+                <button class="k fn" data-ins="cos(">cos</button>
+                <button class="k fn" data-ins="tan(">tan</button>
+                <button class="k fn" data-ins="π">π</button>
+                <button class="k clear" data-act="clear">AC</button>
+                <button class="k fn" data-ins="ln(">ln</button>
+                <button class="k fn" data-ins="log(">log</button>
+                <button class="k fn" data-ins="sqrt(">√</button>
+                <button class="k op" data-ins="^">x^y</button>
+                <button class="k clear" data-act="del">⌫</button>
+                <button class="k" data-ins="7">7</button>
+                <button class="k" data-ins="8">8</button>
+                <button class="k" data-ins="9">9</button>
+                <button class="k op" data-ins="(">(</button>
+                <button class="k op" data-ins=")">)</button>
+                <button class="k" data-ins="4">4</button>
+                <button class="k" data-ins="5">5</button>
+                <button class="k" data-ins="6">6</button>
+                <button class="k op" data-ins="*">×</button>
+                <button class="k op" data-ins="/">÷</button>
+                <button class="k" data-ins="1">1</button>
+                <button class="k" data-ins="2">2</button>
+                <button class="k" data-ins="3">3</button>
+                <button class="k op" data-ins="+">+</button>
+                <button class="k op" data-ins="-">−</button>
+                <button class="k" data-ins="0">0</button>
+                <button class="k" data-ins=".">.</button>
+                <button class="k fn" data-ins="!">n!</button>
+                <button class="k eq" data-act="eq">=</button>
+              </div>
+              <h3 class="muted small">History</h3>
+              <ul class="hist" id="histList"><li class="empty">Past calculations appear here.</li></ul>
+            </div>
+          </section>
+
+          <!-- Tutor -->
+          <section class="pane" data-pane="tutor" hidden>
+            <div class="tutor">
+              <div class="chat" id="chat">
+                <div class="intro" id="tutorIntro">
+                  <p><b>Stuck on a problem?</b></p>
+                  <p class="muted">Type a question, attach a photo, or click <b>Capture screen</b> to send whatever's on the page. The tutor walks you through the steps.</p>
+                  <p class="muted small" id="keyWarn" hidden>Add your Claude API key in ⚙️ Settings to switch the tutor on.</p>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="attach" id="attachRow"></div>
+                <div class="crow">
+                  <button class="mini" id="capBtn" title="Screenshot the current page">📸 Capture screen</button>
+                  <button class="mini" id="attachBtn" title="Attach an image">🖼️ Attach</button>
+                  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+                </div>
+                <div class="crow">
+                  <textarea id="tutorInput" rows="1" placeholder="e.g. How do I solve 3(x − 2) = 15?"></textarea>
+                  <button class="send" id="sendBtn">Ask</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Snippets -->
+          <section class="pane" data-pane="snips" hidden>
+            <p class="muted small">Save text you reuse. Trigger with <b>Alt + key</b> (types into the focused box, or copies), or hit Copy.</p>
+            <div class="snip-list" id="snipList"></div>
+            <div class="snip-add">
+              <div class="row2">
+                <input id="snipName" placeholder="Label" maxlength="40">
+                <input id="snipKey" placeholder="Key" maxlength="1">
+              </div>
+              <textarea id="snipText" placeholder="Text to insert…"></textarea>
+              <button class="send" id="snipAdd">Add snippet</button>
+            </div>
+          </section>
+
+          <!-- Settings -->
+          <section class="pane" data-pane="settings" hidden>
+            <div class="settings">
+              <label class="fld">
+                <span>Claude API key</span>
+                <input id="apiKey" type="password" placeholder="sk-ant-…" spellcheck="false" autocomplete="off">
+                <small class="muted">Stored only on this Mac. <a href="#" id="getKey">Get a key →</a></small>
+              </label>
+              <label class="fld">
+                <span>Tutor model</span>
+                <select id="model">
+                  <option value="claude-sonnet-5-5">Sonnet 5.5 — balanced (recommended)</option>
+                  <option value="claude-opus-5-5">Opus 5.5 — most capable</option>
+                  <option value="claude-haiku-5-5">Haiku 5.5 — fastest</option>
+                </select>
+              </label>
+              <label class="fld">
+                <span>Homepage</span>
+                <input id="homepage" type="text" spellcheck="false" placeholder="https://www.cuemath.com/">
+              </label>
+              <button class="send" id="saveSettings">Save</button>
+              <p class="muted small" id="savedMsg" hidden>Saved.</p>
+            </div>
+          </section>
+
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
