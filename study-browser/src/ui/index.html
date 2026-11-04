@@ -51,6 +51,8 @@
         <button class="pill" data-panel="calc" title="Calculator"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2.5"/><path d="M8 6h8M8 11h0M12 11h0M16 11h0M8 15h0M12 15h0M16 15v3M8 18h4"/></svg><span>Calc</span></button>
         <button class="pill" data-panel="tutor" title="Math tutor"><svg viewBox="0 0 24 24"><path d="M3 8l9-4 9 4-9 4-9-4z"/><path d="M7 10.5V15c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4.5M21 8v5"/></svg><span>Tutor</span></button>
         <button class="pill" data-panel="notes" title="Easy notes"><svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12a0 0 0 0 1 0 0H4z"/><path d="M8 9h6M8 13h8M8 17h5"/></svg><span>Notes</span></button>
+        <button class="pill" data-panel="captions" title="Live captions (experimental)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 11h3M7 14h5M14 11h3M14 14h2"/></svg><span>CC</span></button>
+        <button class="pill" data-panel="funcam" title="Fun cam"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4V8z"/><path d="M6.5 11h0M10 11h0M6.5 14c.8.8 2.2.8 3 0"/></svg><span>Fun</span></button>
         <button class="pill" data-panel="snips" title="Quick text"><svg viewBox="0 0 24 24"><path d="M13 2 4 13h6l-1 9 9-11h-6l1-9z"/></svg><span>Text</span></button>
         <button class="pill" data-panel="settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l1.8-1.3-1.8-3.1-2.1.8a7.7 7.7 0 0 0-2.6-1.5L14.2 2H9.8l-.4 2.4a7.7 7.7 0 0 0-2.6 1.5l-2.1-.8-1.8 3.1 1.8 1.3a7.8 7.8 0 0 0 0 3l-1.8 1.3 1.8 3.1 2.1-.8a7.7 7.7 0 0 0 2.6 1.5l.4 2.4h4.4l.4-2.4a7.7 7.7 0 0 0 2.6-1.5l2.1.8 1.8-3.1-1.8-1.3z"/></svg><span>Settings</span></button>
         <button class="ico" id="focusBtn" title="Focus mode — hide everything but the page (Esc to exit)"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
@@ -136,6 +138,31 @@
             <div id="noteOut" class="note-out" hidden></div>
             <span class="eyebrow">Saved notes</span>
             <div class="note-list" id="noteList"></div>
+          </section>
+
+          <section class="pane" data-pane="captions" hidden>
+            <div class="cap-head">
+              <label class="toggle-row"><input type="checkbox" id="capToggle"> <span>Live captions <b class="exp">experimental</b></span></label>
+              <button class="mini" id="capSummarize">Summarize</button>
+            </div>
+            <p class="muted small">Captions the tutor's audio using Groq Whisper (needs a Groq key). A few seconds behind. Start it once the class audio is playing.</p>
+            <div id="capFeed" class="cap-feed"><p class="muted small">Captions will appear here…</p></div>
+            <div id="capSummary" class="cap-summary" hidden></div>
+            <button class="mini" id="capClear" style="align-self:flex-start">Clear</button>
+          </section>
+
+          <section class="pane" data-pane="funcam" hidden>
+            <p class="muted small">Show an image instead of your camera — for fun during chill time. It only changes what you send; nothing else is affected. <b>Your own feed only.</b></p>
+            <div class="crow"><button class="mini" id="coverAdd"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg> Upload image</button><input type="file" id="coverInput" accept="image/*" multiple hidden></div>
+            <div class="cover-grid" id="coverGrid"></div>
+            <label class="toggle-row"><input type="checkbox" id="coverToggle"> <span>Show selected image as my camera</span></label>
+            <div class="chill-box">
+              <span class="eyebrow">Auto chill mode</span>
+              <p class="muted small">Switch it on by itself when class is nearly over.</p>
+              <label class="toggle-row"><input type="checkbox" id="autoChill"> <span>Auto-start in the last 10 minutes</span></label>
+              <label class="fld"><span>Class ends at</span><input id="classEnd" type="time"></label>
+              <div class="countdown" id="countdown"></div>
+            </div>
           </section>
 
           <section class="pane" data-pane="snips" hidden>

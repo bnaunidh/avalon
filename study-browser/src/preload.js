@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("desk", {
 
   fillPasscode: () => ipcRenderer.invoke("fill-passcode"),
   onEsc: (cb) => ipcRenderer.on("esc-key", cb),
+  onCaption: (cb) => ipcRenderer.on("caption:text", (e, d) => cb(d)),
 
   setFullScreen: (on) => ipcRenderer.invoke("window:fullscreen", on),
   openExternal: (url) => ipcRenderer.invoke("open-external", url)

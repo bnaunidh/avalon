@@ -68,11 +68,11 @@
   });
 
   /* ---------- A/V controls ---------- */
-  const av = { audioMuted: false, mic: true, cam: true, hideVid: false };
+  const av = { audioMuted: false, mic: true, cam: true, hideVid: false, cover: false, coverSrc: "", captions: false };
 
   function applyAv() {
-    // mic / camera / hide-video go to every frame via the main process.
-    try { window.desk.av({ mic: av.mic, cam: av.cam, hideVid: av.hideVid }); } catch (e) {}
+    // mic / camera / hide-video / cover / captions go to every frame via main.
+    try { window.desk.av({ mic: av.mic, cam: av.cam, hideVid: av.hideVid, cover: av.cover, coverSrc: av.coverSrc, captions: av.captions }); } catch (e) {}
     // page audio output is muted on the whole webContents (all frames).
     if (viewReady) { try { view.setAudioMuted(av.audioMuted); } catch (e) {} }
   }
@@ -124,7 +124,7 @@
   document.addEventListener("keydown", (e) => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key || "").toLowerCase() === "p") { e.preventDefault(); fillPass(); } });
 
   /* ---------- Drawer ---------- */
-  const titles = { calc: "Calculator", tutor: "Math tutor", notes: "Easy notes", snips: "Quick text", settings: "Settings" };
+  const titles = { calc: "Calculator", tutor: "Math tutor", notes: "Easy notes", captions: "Live captions", funcam: "Fun cam", snips: "Quick text", settings: "Settings" };
   let activePanel = null;
   function openPanel(name) {
     if (activePanel === name) { closeDrawer(); return; }
@@ -342,6 +342,102 @@
   }
   $("noteGo").addEventListener("click", explainTerm);
   $("noteTerm").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); explainTerm(); } });
+
+  /* ================= FUN CAM ================= */
+  let covers = [];
+  try { covers = JSON.parse(localStorage.getItem("sd_covers") || "[]"); } catch (e) {}
+  let selectedCover = null;
+  try { selectedCover = localStorage.getItem("sd_cover_sel") || null; } catch (e) {}
+  let chill = { auto: false, end: "" };
+  try { chill = Object.assign(chill, JSON.parse(localStorage.getItem("sd_chill") || "{}")); } catch (e) {}
+  function saveCovers() { try { localStorage.setItem("sd_covers", JSON.stringify(covers)); } catch (e) {} }
+  function saveChill() { try { localStorage.setItem("sd_chill", JSON.stringify(chill)); } catch (e) {} }
+  function selectedSrc() { const c = covers.find((x) => x.id === selectedCover); return c ? c.src : ""; }
+
+  function downscale(dataUrl, cb) {
+    const img = new Image();
+    img.onload = function () {
+      const max = 640; let w = img.width, h = img.height;
+      if (w > max) { h = Math.round(h * max / w); w = max; }
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      try { cb(cv.toDataURL("image/jpeg", 0.82)); } catch (e) { cb(dataUrl); }
+    };
+    img.onerror = function () { cb(dataUrl); };
+    img.src = dataUrl;
+  }
+  function renderCovers() {
+    const g = $("coverGrid"); g.innerHTML = "";
+    covers.forEach((c) => {
+      const d = document.createElement("div"); d.className = "cover-thumb" + (c.id === selectedCover ? " sel" : "");
+      const im = document.createElement("img"); im.src = c.src; d.appendChild(im);
+      const x = document.createElement("button"); x.className = "del"; x.textContent = "×";
+      x.addEventListener("click", (e) => { e.stopPropagation(); covers = covers.filter((y) => y.id !== c.id); if (selectedCover === c.id) selectedCover = null; saveCovers(); renderCovers(); if (av.cover) { av.coverSrc = selectedSrc(); applyAv(); } });
+      d.appendChild(x);
+      d.addEventListener("click", () => { selectedCover = c.id; try { localStorage.setItem("sd_cover_sel", c.id); } catch (e) {} renderCovers(); if (av.cover) { av.coverSrc = selectedSrc(); applyAv(); } });
+      g.appendChild(d);
+    });
+  }
+  renderCovers();
+  $("coverAdd").addEventListener("click", () => $("coverInput").click());
+  $("coverInput").addEventListener("change", (e) => {
+    [...e.target.files].forEach((f) => { const r = new FileReader(); r.onload = () => downscale(r.result, (small) => { const id = Math.random().toString(36).slice(2, 9); covers.push({ id, src: small }); if (!selectedCover) selectedCover = id; saveCovers(); renderCovers(); }); r.readAsDataURL(f); });
+    e.target.value = "";
+  });
+  $("coverToggle").addEventListener("change", function () {
+    if (this.checked && !selectedSrc()) { this.checked = false; notify("warn", "warn", "Pick an image", "Upload and select an image first."); return; }
+    av.cover = this.checked; av.coverSrc = selectedSrc(); applyAv();
+    notify(this.checked ? "info" : "good", this.checked ? "camOff" : "cam", this.checked ? "Fun cam on" : "Fun cam off", this.checked ? "Your camera shows the image now." : "Your real camera is back.");
+  });
+  $("autoChill").checked = chill.auto; $("classEnd").value = chill.end || "";
+  $("autoChill").addEventListener("change", function () { chill.auto = this.checked; saveChill(); });
+  $("classEnd").addEventListener("change", function () { chill.end = this.value; chillTriggered = false; saveChill(); });
+
+  let chillTriggered = false;
+  function minsLeft() {
+    if (!chill.end) return null;
+    const m = chill.end.split(":"); if (m.length !== 2) return null;
+    const now = new Date(); const end = new Date(now); end.setHours(+m[0], +m[1], 0, 0);
+    if (end < now) end.setDate(end.getDate() + 1); // assume next occurrence if already past
+    return (end - now) / 60000;
+  }
+  setInterval(() => {
+    const ml = minsLeft(); const cd = $("countdown");
+    if (ml == null) { cd.textContent = ""; }
+    else {
+      const mm = Math.floor(ml), ss = Math.floor((ml - mm) * 60);
+      cd.textContent = mm > 0 || ss > 0 ? ("Class ends in " + mm + "m " + String(ss).padStart(2, "0") + "s") : "Class over";
+      if (chill.auto && ml <= 10 && ml > 0 && !chillTriggered) {
+        chillTriggered = true;
+        if (selectedSrc()) { av.cover = true; av.coverSrc = selectedSrc(); applyAv(); $("coverToggle").checked = true; notify("info", "info", "Chill time 🎉", "10 minutes left — showing your image on camera."); }
+        else notify("warn", "warn", "Chill time 🎉", "10 min left — but pick a Fun cam image first.");
+      }
+    }
+  }, 1000);
+
+  /* ================= CAPTIONS ================= */
+  let transcript = [];
+  $("capToggle").addEventListener("change", function () {
+    if (this.checked && !(settings.groqKey || "").trim()) { this.checked = false; notify("warn", "warn", "Groq key needed", "Captions use Groq Whisper — add a Groq key in Settings."); openPanel("settings"); return; }
+    av.captions = this.checked; applyAv();
+    notify(this.checked ? "info" : "good", "info", this.checked ? "Captions on" : "Captions off", this.checked ? "Listening to the class audio…" : "Stopped.");
+  });
+  window.desk.onCaption((d) => {
+    const feed = $("capFeed");
+    if (feed.querySelector(".muted")) feed.innerHTML = "";
+    const ln = document.createElement("div"); ln.className = "ln" + (d.meta ? " meta" : ""); ln.textContent = d.text;
+    feed.appendChild(ln); feed.scrollTop = feed.scrollHeight;
+    if (!d.meta) transcript.push(d.text);
+  });
+  $("capClear").addEventListener("click", () => { transcript = []; $("capFeed").innerHTML = '<p class="muted small">Captions will appear here…</p>'; $("capSummary").hidden = true; });
+  $("capSummarize").addEventListener("click", async () => {
+    if (!transcript.length) { toast("No captions yet"); return; }
+    if (!hasKey()) { notify("warn", "warn", "No API key", "Add a key in Settings to summarize."); openPanel("settings"); return; }
+    const box = $("capSummary"); box.hidden = false; box.textContent = "Summarizing…";
+    const text = transcript.join(" ").slice(-6000);
+    const res = await window.desk.ai({ system: "You are a study helper. Summarize this transcript of a math class into a few clear bullet points a student can revise from: key ideas, methods, and any homework mentioned. Keep it short.", messages: [{ role: "user", parts: [{ type: "text", text: text }] }] });
+    box.textContent = res.ok ? res.text : ("Couldn't summarize: " + (res.message || res.error));
+  });
 
   /* ================= TUTOR ================= */
   const chat = $("chat"), tutorInput = $("tutorInput"), sendBtn = $("sendBtn"), attachRow = $("attachRow");

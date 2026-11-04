@@ -126,6 +126,34 @@ ipcMain.on("av:set", (e, s) => { currentAv = Object.assign(currentAv, s || {}); 
 // Each frame pulls the current state as it loads (covers late-loading iframes).
 ipcMain.on("av:request", (e) => { try { e.senderFrame.send("av", currentAv); } catch (err) {} });
 
+// Live captions: transcribe a remote-audio chunk with Groq Whisper, send text back.
+let capWarned = false;
+ipcMain.on("caption:audio", async (e, payload) => {
+  const s = readSettings();
+  const key = (s.groqKey || "").trim();
+  if (!key) {
+    if (!capWarned && win && !win.isDestroyed()) { capWarned = true; win.webContents.send("caption:text", { text: "Live captions need a Groq API key (Settings).", meta: true }); }
+    return;
+  }
+  try {
+    const buf = Buffer.from(payload.b64 || "", "base64");
+    if (!buf.length) return;
+    const form = new FormData();
+    form.append("model", "whisper-large-v3");
+    form.append("response_format", "text");
+    form.append("file", new Blob([buf], { type: payload.mime || "audio/webm" }), "audio.webm");
+    const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { "authorization": "Bearer " + key },
+      body: form
+    });
+    const txt = await res.text();
+    if (!win || win.isDestroyed()) return;
+    if (res.ok) { const t = txt.trim(); if (t) win.webContents.send("caption:text", { text: t }); }
+    else win.webContents.send("caption:text", { text: "[caption error] " + txt.slice(0, 140), meta: true });
+  } catch (err) { /* drop this chunk */ }
+});
+
 // Type the saved passcode into whatever field is focused in the embedded page.
 ipcMain.handle("fill-passcode", () => {
   const s = readSettings();
