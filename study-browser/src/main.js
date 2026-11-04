@@ -3,6 +3,8 @@ const { app, BrowserWindow, session, ipcMain, shell, Menu } = require("electron"
 const path = require("path");
 const fs = require("fs");
 
+app.setName("Cuemath Browser");
+
 const SETTINGS_FILE = () => path.join(app.getPath("userData"), "settings.json");
 
 const DEFAULTS = {
@@ -38,7 +40,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 540,
     backgroundColor: "#ffffff",
-    title: "Study Desk Browser",
+    title: "Cuemath Browser",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

@@ -1,4 +1,4 @@
-# Study Desk Browser
+# Cuemath Browser
 
 A small, focused desktop browser for online tutoring. It opens **Cuemath — or any
 website** — in a normal browser view, with study tools built into the window:
@@ -36,14 +36,14 @@ npm install
 npm run dist
 ```
 
-The installer is written to `study-browser/dist/Study Desk Browser-1.0.0.dmg`.
+The installer is written to `study-browser/dist/Cuemath Browser-1.0.0.dmg`.
 
 ### First launch (unsigned app)
 
 The app isn't code-signed, so macOS Gatekeeper will warn on first open. Either:
 
 - Right-click the app in Applications → **Open** → **Open**, or
-- `xattr -cr "/Applications/Study Desk Browser.app"` then open normally.
+- `xattr -cr "/Applications/Cuemath Browser.app"` then open normally.
 
 To ship it signed/notarized, add your Apple Developer credentials to the
 `build.mac` section of `package.json` (see electron-builder docs) and set
@@ -55,7 +55,7 @@ To ship it signed/notarized, add your Apple Developer credentials to the
 2. Open the app → ⚙️ **Settings** → paste the key → **Save**.
 
 The key is stored in your app data folder
-(`~/Library/Application Support/Study Desk Browser/settings.json`) and is only ever
+(`~/Library/Application Support/Cuemath Browser/settings.json`) and is only ever
 sent to Anthropic's API when you ask the tutor a question.
 
 ## Notes

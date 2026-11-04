@@ -49,7 +49,7 @@
   view.addEventListener("dom-ready", () => { viewReady = true; avHookReady = false; applyAv(); });
   view.addEventListener("did-navigate", (e) => { $("address").value = e.url; });
   view.addEventListener("did-navigate-in-page", (e) => { if (e.isMainFrame) $("address").value = e.url; });
-  view.addEventListener("page-title-updated", (e) => { document.title = e.title + " — Study Desk"; });
+  view.addEventListener("page-title-updated", (e) => { document.title = e.title + " — Cuemath Browser"; });
   view.addEventListener("ipc-message", (e) => { if (e.channel === "av-ready") { avHookReady = true; applyAv(); } });
 
   /* ---------- Navigation ---------- */
