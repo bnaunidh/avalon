@@ -32,6 +32,17 @@ function writeSettings(s) {
 }
 
 let win;
+let guestWC = null;                       // the embedded <webview>'s webContents
+let currentAv = { mic: true, cam: true, hideVid: false };
+
+function broadcastAv() {
+  if (!guestWC || guestWC.isDestroyed()) return;
+  try {
+    for (const f of guestWC.mainFrame.framesInSubtree) {
+      try { f.send("av", currentAv); } catch (e) {}
+    }
+  } catch (e) {}
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -50,7 +61,17 @@ function createWindow() {
     }
   });
   win.loadFile(path.join(__dirname, "ui", "index.html"));
-  win.on("closed", () => { win = null; });
+
+  // Track the embedded browser's webContents so we can reach all its frames.
+  win.webContents.on("did-attach-webview", (e, guest) => {
+    guestWC = guest;
+    const rb = () => broadcastAv();
+    guest.on("did-navigate", rb);
+    guest.on("did-frame-navigate", rb);
+    guest.on("dom-ready", rb);
+  });
+
+  win.on("closed", () => { win = null; guestWC = null; });
 }
 
 // Grant camera / mic / fullscreen to the embedded site so video calls work.
@@ -83,6 +104,11 @@ ipcMain.handle("window:fullscreen", (e, on) => {
   return win.isFullScreen();
 });
 ipcMain.handle("open-external", (e, url) => { if (/^https?:\/\//i.test(url)) shell.openExternal(url); });
+
+// A/V: toolbar sets desired state; every frame of the embedded site receives it.
+ipcMain.on("av:set", (e, s) => { currentAv = Object.assign(currentAv, s || {}); broadcastAv(); });
+// Each frame pulls the current state as it loads (covers late-loading iframes).
+ipcMain.on("av:request", (e) => { try { e.senderFrame.send("av", currentAv); } catch (err) {} });
 
 /* ---------- AI tutor: Anthropic or Groq (OpenAI-compatible) ---------- */
 const SYSTEM =

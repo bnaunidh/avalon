@@ -69,16 +69,12 @@
 
   /* ---------- A/V controls ---------- */
   const av = { audioMuted: false, mic: true, cam: true, hideVid: false };
-  let hideCssKey = null;
 
   function applyAv() {
-    if (!viewReady) return;
-    try { view.setAudioMuted(av.audioMuted); } catch (e) {}
-    try { view.send("av", { mic: av.mic, cam: av.cam }); } catch (e) {}
-    try {
-      if (av.hideVid && hideCssKey == null) view.insertCSS("video{visibility:hidden !important;}").then((k) => { hideCssKey = k; });
-      else if (!av.hideVid && hideCssKey != null) { const k = hideCssKey; hideCssKey = null; view.removeInsertedCSS(k).catch(() => {}); }
-    } catch (e) {}
+    // mic / camera / hide-video go to every frame via the main process.
+    try { window.desk.av({ mic: av.mic, cam: av.cam, hideVid: av.hideVid }); } catch (e) {}
+    // page audio output is muted on the whole webContents (all frames).
+    if (viewReady) { try { view.setAudioMuted(av.audioMuted); } catch (e) {} }
   }
   function callWarnIfNeeded() {
     if (!avHookReady) notify("info", "info", "No call detected yet", "This will take effect once a page with a video call is open.");

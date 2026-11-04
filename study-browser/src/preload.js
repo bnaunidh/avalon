@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("desk", {
 
   ai: (payload) => ipcRenderer.invoke("ai:ask", payload),
 
+  // Set desired A/V state; main broadcasts it to every frame of the embedded site.
+  av: (state) => ipcRenderer.send("av:set", state),
+
   setFullScreen: (on) => ipcRenderer.invoke("window:fullscreen", on),
   openExternal: (url) => ipcRenderer.invoke("open-external", url)
 });
