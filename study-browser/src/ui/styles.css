@@ -166,6 +166,16 @@ webview { display: inline-flex; }
 .snip-add textarea { font-family: var(--mono); resize: vertical; min-height: 48px; }
 .snip-add input:focus, .snip-add textarea:focus, .settings input:focus, .settings select:focus { outline: none; border-color: var(--accent); background: #fff; }
 
+/* Easy notes */
+.note-out { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+.note-out .nb { font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; -webkit-user-select: text; user-select: text; }
+.note-list { display: flex; flex-direction: column; gap: 8px; }
+.note-card { border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 11px 12px; }
+.note-card .nt { font-weight: 800; font-size: 13px; color: var(--accent-2); text-transform: capitalize; }
+.note-card .nb { font-size: 12.5px; line-height: 1.5; margin: 3px 0 7px; white-space: pre-wrap; -webkit-user-select: text; user-select: text; }
+.note-card .nx { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 4px 9px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.note-card .nx:hover { border-color: var(--danger); color: var(--danger); }
+
 /* Settings */
 .settings { display: flex; flex-direction: column; gap: 15px; }
 .prov-block { display: flex; flex-direction: column; gap: 15px; padding: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 13px; }

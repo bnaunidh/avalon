@@ -13,7 +13,8 @@ const DEFAULTS = {
   groqKey: "",
   anthropicModel: "claude-sonnet-5-5",
   groqModel: "meta-llama/llama-4-scout-17b-16e-instruct",
-  homepage: "https://www.cuemath.com/"
+  homepage: "https://leap.cuemath.com/",
+  passcode: ""
 };
 
 function readSettings() {
@@ -69,6 +70,12 @@ function createWindow() {
     guest.on("did-navigate", rb);
     guest.on("did-frame-navigate", rb);
     guest.on("dom-ready", rb);
+    // Escape always exits focus mode, even when the embedded page has focus.
+    guest.on("before-input-event", (ev, input) => {
+      if (input.type === "keyDown" && input.key === "Escape" && win && !win.isDestroyed()) {
+        win.webContents.send("esc-key");
+      }
+    });
   });
 
   win.on("closed", () => { win = null; guestWC = null; });
@@ -81,6 +88,15 @@ function configureGuestSession() {
   const ALLOW = new Set(["media", "fullscreen", "clipboard-read", "clipboard-sanitized-write", "notifications", "pointerLock"]);
   ses.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOW.has(permission)));
   ses.setPermissionCheckHandler((wc, permission) => ALLOW.has(permission));
+  // Drop Content-Security-Policy so our in-page mic/camera hook can be injected
+  // into the real page world (including the call iframe).
+  ses.webRequest.onHeadersReceived((details, cb) => {
+    const h = details.responseHeaders || {};
+    for (const k of Object.keys(h)) {
+      if (/^content-security-policy/i.test(k) || /^x-webkit-csp/i.test(k)) delete h[k];
+    }
+    cb({ responseHeaders: h });
+  });
 }
 
 app.on("web-contents-created", (event, contents) => {
@@ -110,6 +126,15 @@ ipcMain.on("av:set", (e, s) => { currentAv = Object.assign(currentAv, s || {}); 
 // Each frame pulls the current state as it loads (covers late-loading iframes).
 ipcMain.on("av:request", (e) => { try { e.senderFrame.send("av", currentAv); } catch (err) {} });
 
+// Type the saved passcode into whatever field is focused in the embedded page.
+ipcMain.handle("fill-passcode", () => {
+  const s = readSettings();
+  if (!s.passcode || !guestWC || guestWC.isDestroyed()) return false;
+  const focused = guestWC.focusedFrame || guestWC.mainFrame;
+  try { guestWC.focus(); } catch (e) {}
+  try { guestWC.insertText(s.passcode); return true; } catch (e) { return false; }
+});
+
 /* ---------- AI tutor: Anthropic or Groq (OpenAI-compatible) ---------- */
 const SYSTEM =
   "You are a warm, patient math tutor helping a student who is still learning. " +
@@ -138,11 +163,12 @@ ipcMain.handle("ai:ask", async (e, payload) => {
   const provider = s.provider === "groq" ? "groq" : "anthropic";
   const key = (provider === "groq" ? s.groqKey : (s.anthropicKey || s.apiKey)) || "";
   if (!key.trim()) return { ok: false, error: "no-key", provider };
+  const sys = (payload && payload.system) || SYSTEM;
 
   try {
     if (provider === "groq") {
       const model = s.groqModel || DEFAULTS.groqModel;
-      const messages = [{ role: "system", content: SYSTEM }].concat(payload.messages.map(toOpenAI));
+      const messages = [{ role: "system", content: sys }].concat(payload.messages.map(toOpenAI));
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json", "authorization": "Bearer " + key.trim() },
@@ -158,7 +184,7 @@ ipcMain.handle("ai:ask", async (e, payload) => {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "content-type": "application/json", "x-api-key": key.trim(), "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model, max_tokens: 2000, system: SYSTEM, messages })
+        body: JSON.stringify({ model, max_tokens: 2000, system: sys, messages })
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: "api", provider, message: (data && data.error && data.error.message) || ("HTTP " + res.status) };
@@ -167,6 +193,37 @@ ipcMain.handle("ai:ask", async (e, payload) => {
     }
   } catch (err) {
     return { ok: false, error: "network", provider, message: String(err && err.message || err) };
+  }
+});
+
+// Quick connectivity/key check for the Settings "Test" button.
+ipcMain.handle("ai:test", async () => {
+  const s = readSettings();
+  const provider = s.provider === "groq" ? "groq" : "anthropic";
+  const key = (provider === "groq" ? s.groqKey : s.anthropicKey) || "";
+  if (!key.trim()) return { ok: false, message: "No " + (provider === "groq" ? "Groq" : "Claude") + " key entered." };
+  try {
+    if (provider === "groq") {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json", "authorization": "Bearer " + key.trim() },
+        body: JSON.stringify({ model: s.groqModel || DEFAULTS.groqModel, max_tokens: 5, messages: [{ role: "user", content: "ping" }] })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return { ok: true, message: "Groq key works." };
+      return { ok: false, message: (data && data.error && data.error.message) || ("HTTP " + res.status) };
+    } else {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": key.trim(), "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: s.anthropicModel || DEFAULTS.anthropicModel, max_tokens: 5, messages: [{ role: "user", content: "ping" }] })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) return { ok: true, message: "Claude key works." };
+      return { ok: false, message: (data && data.error && data.error.message) || ("HTTP " + res.status) };
+    }
+  } catch (err) {
+    return { ok: false, message: String(err && err.message || err) };
   }
 });
 

@@ -111,9 +111,20 @@
     if (on) notify("info", "info", "Focus mode", "Everything but the page is hidden. Press Esc to exit.");
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("focus")) document.body.classList.remove("focus"); });
+  // Escape relayed from the embedded page (works even when the webview has focus).
+  window.desk.onEsc(() => { if (document.body.classList.contains("focus")) document.body.classList.remove("focus"); });
+
+  /* ---------- Passcode fill ---------- */
+  async function fillPass() {
+    const ok = await window.desk.fillPasscode();
+    if (ok) notify("good", "info", "Passcode filled", "Typed into the focused field.");
+    else notify("warn", "warn", "Nothing to fill", "Save a passcode in Settings, then click the login box first.");
+  }
+  $("fillPass").addEventListener("click", fillPass);
+  document.addEventListener("keydown", (e) => { if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key || "").toLowerCase() === "p") { e.preventDefault(); fillPass(); } });
 
   /* ---------- Drawer ---------- */
-  const titles = { calc: "Calculator", tutor: "Math tutor", snips: "Quick text", settings: "Settings" };
+  const titles = { calc: "Calculator", tutor: "Math tutor", notes: "Easy notes", snips: "Quick text", settings: "Settings" };
   let activePanel = null;
   function openPanel(name) {
     if (activePanel === name) { closeDrawer(); return; }
@@ -259,7 +270,8 @@
     $("groqKey").value = settings.groqKey || "";
     $("anthropicModel").value = settings.anthropicModel || "claude-sonnet-5-5";
     $("groqModel").value = settings.groqModel || "meta-llama/llama-4-scout-17b-16e-instruct";
-    $("homepage").value = settings.homepage || "https://www.cuemath.com/";
+    $("homepage").value = settings.homepage || "https://leap.cuemath.com/";
+    $("passcode").value = settings.passcode || "";
     syncProvBlocks();
   }
   function syncProvBlocks() {
@@ -275,12 +287,61 @@
       groqKey: $("groqKey").value.trim(),
       anthropicModel: $("anthropicModel").value,
       groqModel: $("groqModel").value,
-      homepage: $("homepage").value.trim() || "https://www.cuemath.com/"
+      homepage: $("homepage").value.trim() || "https://leap.cuemath.com/",
+      passcode: $("passcode").value
     };
     settings = await window.desk.settings.set(patch);
     $("keyWarn").hidden = hasKey();
     notify("good", "info", "Settings saved", (settings.provider === "groq" ? "Using Groq" : "Using Claude") + (hasKey() ? " — tutor ready." : " — add a key to finish."));
   });
+  $("testKey").addEventListener("click", async () => {
+    const msg = $("testMsg"); msg.textContent = "Testing…"; msg.style.color = "var(--muted)";
+    // Save current field values first so the test uses them.
+    await window.desk.settings.set({ provider: $("provider").value, anthropicKey: $("anthropicKey").value.trim(), groqKey: $("groqKey").value.trim(), anthropicModel: $("anthropicModel").value, groqModel: $("groqModel").value });
+    const res = await window.desk.testKey();
+    msg.textContent = (res.ok ? "✓ " : "✗ ") + res.message;
+    msg.style.color = res.ok ? "var(--good)" : "var(--danger)";
+  });
+
+  /* ================= EASY NOTES ================= */
+  const NOTE_SYS = "You are a friendly tutor. Give a SHORT, kid-friendly definition of the concept the student names, then one simple worked example. Keep it under 90 words, plain language, no headings.";
+  let notesSaved = [];
+  try { notesSaved = JSON.parse(localStorage.getItem("sd_notes") || "[]"); } catch (e) {}
+  function saveNotes() { try { localStorage.setItem("sd_notes", JSON.stringify(notesSaved)); } catch (e) {} }
+  function renderNotes() {
+    const list = $("noteList"); list.innerHTML = "";
+    if (!notesSaved.length) { list.innerHTML = '<p class="muted small">No saved notes yet.</p>'; return; }
+    notesSaved.forEach((n, i) => {
+      const d = document.createElement("div"); d.className = "note-card";
+      const h = document.createElement("div"); h.className = "nt"; h.textContent = n.term;
+      const b = document.createElement("div"); b.className = "nb"; b.textContent = n.text;
+      const x = document.createElement("button"); x.className = "nx"; x.textContent = "Delete"; x.addEventListener("click", () => { notesSaved.splice(i, 1); saveNotes(); renderNotes(); });
+      d.append(h, b, x); list.appendChild(d);
+    });
+  }
+  renderNotes();
+  let noteBusy = false;
+  async function explainTerm() {
+    if (noteBusy) return;
+    const term = $("noteTerm").value.trim();
+    if (!term) { toast("Type a concept first"); return; }
+    if (!hasKey()) { notify("warn", "warn", "No API key", "Add a key in Settings to use notes."); openPanel("settings"); return; }
+    noteBusy = true;
+    const out = $("noteOut"); out.hidden = false; out.innerHTML = '<div class="nb">Thinking…</div>';
+    const res = await window.desk.ai({ system: NOTE_SYS, messages: [{ role: "user", parts: [{ type: "text", text: "Explain this math concept: " + term }] }] });
+    if (res.ok) {
+      out.innerHTML = "";
+      const b = document.createElement("div"); b.className = "nb"; b.textContent = res.text;
+      const save = document.createElement("button"); save.className = "mini"; save.textContent = "Save this note"; save.style.marginTop = "8px";
+      save.addEventListener("click", () => { notesSaved.unshift({ term: term, text: res.text }); saveNotes(); renderNotes(); toast("Note saved"); });
+      out.append(b, save);
+    } else {
+      out.innerHTML = '<div class="nb">' + (res.error === "no-key" ? "Add an API key in Settings." : ("Couldn't fetch that: " + (res.message || res.error))) + "</div>";
+    }
+    noteBusy = false;
+  }
+  $("noteGo").addEventListener("click", explainTerm);
+  $("noteTerm").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); explainTerm(); } });
 
   /* ================= TUTOR ================= */
   const chat = $("chat"), tutorInput = $("tutorInput"), sendBtn = $("sendBtn"), attachRow = $("attachRow");
