@@ -6,8 +6,7 @@
  * It lets YOU turn your OWN microphone and camera on/off: when off, the matching
  * tracks are disabled (track.enabled = false), which keeps the call connected but
  * sends silence / a blank frame — identical to pressing mute in the call itself.
- * It only ever affects your own outgoing media. It does not touch, read, or alter
- * anyone else's stream, and it sends nothing anywhere.
+ * It only ever affects your own outgoing media and sends nothing anywhere.
  */
 const { ipcRenderer } = require("electron");
 
@@ -25,26 +24,33 @@ const { ipcRenderer } = require("electron");
     });
   }
 
-  try {
-    const md = navigator.mediaDevices;
-    if (md && typeof md.getUserMedia === "function") {
-      const orig = md.getUserMedia.bind(md);
-      md.getUserMedia = function (constraints) {
-        return orig(constraints).then((stream) => {
-          stream.getTracks().forEach((t) => {
-            tracked.add(t);
-            t.addEventListener("ended", () => tracked.delete(t));
-          });
-          apply();
-          return stream;
+  function hook(md) {
+    if (!md || typeof md.getUserMedia !== "function" || md.__sdHooked) return;
+    const orig = md.getUserMedia.bind(md);
+    md.getUserMedia = function (constraints) {
+      return orig(constraints).then((stream) => {
+        stream.getTracks().forEach((t) => {
+          tracked.add(t);
+          t.addEventListener("ended", () => tracked.delete(t));
         });
-      };
-    }
-  } catch (e) {}
+        apply();
+        return stream;
+      });
+    };
+    md.__sdHooked = true;
+  }
 
-  // Toolbar -> guest: { mic: bool, cam: bool }
+  try { hook(navigator.mediaDevices); } catch (e) {}
+
+  // Toolbar -> guest
   ipcRenderer.on("av", (event, s) => {
     if (s && typeof s === "object") Object.assign(state, s);
     apply();
   });
+
+  // Tell the toolbar the A/V hook is live on this page.
+  function announce() { try { ipcRenderer.sendToHost("av-ready"); } catch (e) {} }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", announce);
+  else announce();
+  window.addEventListener("load", announce);
 })();

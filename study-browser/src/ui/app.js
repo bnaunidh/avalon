@@ -3,45 +3,68 @@
   const $ = (id) => document.getElementById(id);
   const view = $("view");
 
-  /* ---------- Toast ---------- */
+  /* ---------- Notifications ---------- */
+  const ICONS = {
+    speaker: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/>',
+    speakerOff: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    micOff: '<path d="M9 9v2a3 3 0 0 0 5 2.2M15 11V6a3 3 0 0 0-5.7-1.3"/><path d="M5 11a7 7 0 0 0 10.9 5.8M19 11a7 7 0 0 1-.5 2.6M12 18v3"/><path d="m3 3 18 18"/>',
+    cam: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4V8z"/>',
+    camOff: '<path d="M16 16v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h4a2 2 0 0 1 2 2v2l4-3v9"/><path d="m3 3 18 18"/>',
+    eye: '<path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M9.9 5.2A10.9 10.9 0 0 1 12 5c7 0 10.5 7 10.5 7a18 18 0 0 1-3.2 4M6.2 6.2A18 18 0 0 0 1.5 12S5 19 12 19a10.8 10.8 0 0 0 4.3-.9"/><path d="M9.5 9.6a3 3 0 0 0 4.2 4.3"/><path d="m3 3 18 18"/>',
+    warn: '<path d="M12 9v4M12 17h0M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/>'
+  };
+  const notes = $("notes");
+  function notify(kind, icon, title, body, ms) {
+    const n = document.createElement("div");
+    n.className = "note " + (kind || "info");
+    n.innerHTML =
+      '<div class="nicon"><svg viewBox="0 0 24 24">' + (ICONS[icon] || ICONS.info) + '</svg></div>' +
+      '<div class="ntext"><div class="ntitle"></div><div class="nbody"></div></div>' +
+      '<button class="nclose" aria-label="Dismiss"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>';
+    n.querySelector(".ntitle").textContent = title;
+    n.querySelector(".nbody").textContent = body;
+    const close = () => { if (!n.parentNode) return; n.classList.add("out"); setTimeout(() => n.remove(), 220); };
+    n.querySelector(".nclose").addEventListener("click", close);
+    notes.appendChild(n);
+    setTimeout(close, ms || 2900);
+  }
   const toastEl = $("toast"); let toastT;
-  function toast(m) { toastEl.textContent = m; toastEl.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 1700); }
+  function toast(m) { toastEl.textContent = m; toastEl.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 1600); }
 
   /* ---------- Settings + webview boot ---------- */
-  let settings = { apiKey: "", model: "claude-sonnet-5-5", homepage: "https://www.cuemath.com/" };
-  let viewReady = false;
+  let settings = {};
+  let viewReady = false, avHookReady = false;
 
   view.setAttribute("preload", window.desk.sitePreload);
 
   window.desk.settings.get().then((s) => {
-    settings = Object.assign(settings, s || {});
+    settings = s || {};
     view.src = settings.homepage || "https://www.cuemath.com/";
-    $("apiKey").value = settings.apiKey || "";
-    $("model").value = settings.model || "claude-sonnet-5-5";
-    $("homepage").value = settings.homepage || "https://www.cuemath.com/";
+    fillSettings();
   });
 
-  view.addEventListener("dom-ready", () => { viewReady = true; applyAv(); });
+  view.addEventListener("dom-ready", () => { viewReady = true; avHookReady = false; applyAv(); });
   view.addEventListener("did-navigate", (e) => { $("address").value = e.url; });
   view.addEventListener("did-navigate-in-page", (e) => { if (e.isMainFrame) $("address").value = e.url; });
   view.addEventListener("page-title-updated", (e) => { document.title = e.title + " — Study Desk"; });
+  view.addEventListener("ipc-message", (e) => { if (e.channel === "av-ready") { avHookReady = true; applyAv(); } });
 
   /* ---------- Navigation ---------- */
   $("back").addEventListener("click", () => view.canGoBack() && view.goBack());
   $("fwd").addEventListener("click", () => view.canGoForward() && view.goForward());
   $("reload").addEventListener("click", () => view.reload());
   $("home").addEventListener("click", () => view.loadURL(settings.homepage || "https://www.cuemath.com/"));
-
   $("addressForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    let v = $("address").value.trim();
-    if (!v) return;
+    let v = $("address").value.trim(); if (!v) return;
     let url;
     if (/^https?:\/\//i.test(v)) url = v;
     else if (/^[^\s]+\.[^\s]{2,}(\/.*)?$/.test(v)) url = "https://" + v;
     else url = "https://www.google.com/search?q=" + encodeURIComponent(v);
-    view.loadURL(url);
-    $("address").blur();
+    view.loadURL(url); $("address").blur();
   });
 
   /* ---------- A/V controls ---------- */
@@ -52,70 +75,66 @@
     if (!viewReady) return;
     try { view.setAudioMuted(av.audioMuted); } catch (e) {}
     try { view.send("av", { mic: av.mic, cam: av.cam }); } catch (e) {}
-    // hide video (your screen only) via injected CSS
     try {
-      if (av.hideVid && hideCssKey == null) {
-        view.insertCSS("video{visibility:hidden !important;}").then((k) => { hideCssKey = k; });
-      } else if (!av.hideVid && hideCssKey != null) {
-        const k = hideCssKey; hideCssKey = null; view.removeInsertedCSS(k).catch(() => {});
-      }
+      if (av.hideVid && hideCssKey == null) view.insertCSS("video{visibility:hidden !important;}").then((k) => { hideCssKey = k; });
+      else if (!av.hideVid && hideCssKey != null) { const k = hideCssKey; hideCssKey = null; view.removeInsertedCSS(k).catch(() => {}); }
     } catch (e) {}
+  }
+  function callWarnIfNeeded() {
+    if (!avHookReady) notify("info", "info", "No call detected yet", "This will take effect once a page with a video call is open.");
   }
 
   $("muteAudio").addEventListener("click", function () {
-    av.audioMuted = !av.audioMuted;
-    this.classList.toggle("on", av.audioMuted);
-    this.querySelector(".g").textContent = av.audioMuted ? "🔇" : "🔊";
-    applyAv(); toast(av.audioMuted ? "Page sound muted (your speakers)" : "Page sound on");
+    av.audioMuted = !av.audioMuted; this.classList.toggle("off", av.audioMuted);
+    this.setAttribute("aria-pressed", String(av.audioMuted)); applyAv();
+    if (av.audioMuted) notify("info", "speakerOff", "Page muted", "This site is silent on your speakers.");
+    else notify("good", "speaker", "Sound on", "You'll hear the page again.");
   });
   $("micBtn").addEventListener("click", function () {
-    av.mic = !av.mic; this.classList.toggle("on", av.mic);
-    applyAv(); toast(av.mic ? "Your mic on" : "Your mic off");
+    av.mic = !av.mic; this.classList.toggle("off", !av.mic);
+    this.setAttribute("aria-pressed", String(!av.mic)); applyAv();
+    if (!av.mic) { notify("danger", "micOff", "Mic muted", "Your tutor can't hear you now."); callWarnIfNeeded(); }
+    else notify("good", "mic", "Mic on", "Your tutor can hear you again.");
   });
   $("camBtn").addEventListener("click", function () {
-    av.cam = !av.cam; this.classList.toggle("on", av.cam);
-    applyAv(); toast(av.cam ? "Your camera on" : "Your camera off");
+    av.cam = !av.cam; this.classList.toggle("off", !av.cam);
+    this.setAttribute("aria-pressed", String(!av.cam)); applyAv();
+    if (!av.cam) { notify("danger", "camOff", "Camera off", "Your tutor can't see you now."); callWarnIfNeeded(); }
+    else notify("good", "cam", "Camera on", "Your tutor can see you again.");
   });
   $("hideVid").addEventListener("click", function () {
-    av.hideVid = !av.hideVid; this.classList.toggle("on", av.hideVid);
-    applyAv(); toast(av.hideVid ? "Video hidden on your screen" : "Video shown");
+    av.hideVid = !av.hideVid; this.classList.toggle("off", av.hideVid);
+    this.setAttribute("aria-pressed", String(av.hideVid)); applyAv();
+    if (av.hideVid) notify("info", "eyeOff", "Video hidden", "Hidden on your screen only — the call keeps running.");
+    else notify("info", "eye", "Video shown", "Video is visible again.");
   });
 
   /* ---------- Focus mode ---------- */
   $("focusBtn").addEventListener("click", () => {
-    document.body.classList.toggle("focus");
-    toast(document.body.classList.contains("focus") ? "Focus mode — press Esc to exit" : "");
+    const on = document.body.classList.toggle("focus");
+    if (on) notify("info", "info", "Focus mode", "Everything but the page is hidden. Press Esc to exit.");
   });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.body.classList.contains("focus")) document.body.classList.remove("focus");
-  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("focus")) document.body.classList.remove("focus"); });
 
-  /* ---------- Drawer / panels ---------- */
+  /* ---------- Drawer ---------- */
   const titles = { calc: "Calculator", tutor: "Math tutor", snips: "Quick text", settings: "Settings" };
   let activePanel = null;
   function openPanel(name) {
     if (activePanel === name) { closeDrawer(); return; }
-    activePanel = name;
-    $("drawer").hidden = false;
-    $("drawerTitle").textContent = titles[name];
+    activePanel = name; $("drawer").hidden = false; $("drawerTitle").textContent = titles[name];
     document.querySelectorAll(".pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    document.querySelectorAll(".feat-btn").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
-    if (name === "tutor") { $("keyWarn").hidden = !!settings.apiKey; setTimeout(() => $("tutorInput").focus(), 20); }
+    document.querySelectorAll(".pill").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+    if (name === "tutor") { $("keyWarn").hidden = hasKey(); setTimeout(() => $("tutorInput").focus(), 20); }
   }
-  function closeDrawer() {
-    activePanel = null; $("drawer").hidden = true;
-    document.querySelectorAll(".feat-btn").forEach((b) => b.classList.remove("active"));
-  }
-  document.querySelectorAll(".feat-btn").forEach((b) => b.addEventListener("click", () => openPanel(b.dataset.panel)));
+  function closeDrawer() { activePanel = null; $("drawer").hidden = true; document.querySelectorAll(".pill").forEach((b) => b.classList.remove("active")); }
+  document.querySelectorAll(".pill").forEach((b) => b.addEventListener("click", () => openPanel(b.dataset.panel)));
   $("drawerClose").addEventListener("click", closeDrawer);
 
   /* ================= CALCULATOR ================= */
   const exprEl = $("calcExpr"), outEl = $("calcOut");
   let expr = "", angleMode = "deg", lastAnswer = null, justEval = false, history = [];
   try { history = JSON.parse(localStorage.getItem("sd_hist") || "[]"); } catch (e) {}
-
   function renderExpr() { exprEl.textContent = (expr.replace(/\*/g, "×").replace(/\//g, "÷").replace(/sqrt\(/g, "√(")) || " "; }
-
   function tokenize(s) {
     const funcs = ["sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "abs"];
     const tk = []; let i = 0, prev = null;
@@ -173,30 +192,16 @@
         st.push(r);
       }
     }
-    if (st.length !== 1) throw new Error("incomplete");
-    return st[0];
+    if (st.length !== 1) throw new Error("incomplete"); return st[0];
   }
   function evaluate(s) { return evalRPN(toRPN(tokenize(s.replace(/π/g, "pi").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-")))); }
   function fmt(n) { if (!isFinite(n)) throw new Error("not finite"); if (Math.abs(n) < 1e-12) n = 0; const r = Math.round(n * 1e10) / 1e10; if (Math.abs(r) >= 1e15 || (Math.abs(r) < 1e-6 && r !== 0)) return r.toExponential(6).replace(/\.?0+e/, "e"); return String(r); }
-
-  function cInsert(str) {
-    if (justEval) { if (/[0-9.(]/.test(str) || /^(sin|cos|tan|ln|log|sqrt|π|abs)/.test(str)) expr = ""; else expr = (lastAnswer !== null ? String(lastAnswer) : ""); justEval = false; }
-    expr += str; renderExpr();
-  }
-  function cEval() {
-    if (!expr.trim()) return;
-    try { const out = fmt(evaluate(expr)); outEl.textContent = out; outEl.classList.remove("err"); lastAnswer = out; justEval = true; history.unshift({ e: expr.replace(/\*/g, "×").replace(/\//g, "÷"), o: out }); history = history.slice(0, 15); try { localStorage.setItem("sd_hist", JSON.stringify(history)); } catch (e) {} renderHist(); }
-    catch (err) { outEl.textContent = err.message || "Error"; outEl.classList.add("err"); }
-  }
-  function renderHist() {
-    const ul = $("histList"); if (!history.length) { ul.innerHTML = '<li class="empty">Past calculations appear here.</li>'; return; }
-    ul.innerHTML = "";
-    history.forEach((h) => { const li = document.createElement("li"); const a = document.createElement("span"); a.textContent = h.e; const b = document.createElement("span"); b.className = "ho"; b.textContent = "= " + h.o; li.append(a, b); li.addEventListener("click", () => { expr = String(h.o); justEval = true; renderExpr(); outEl.textContent = h.o; outEl.classList.remove("err"); }); ul.appendChild(li); });
-  }
+  function cInsert(str) { if (justEval) { if (/[0-9.(]/.test(str) || /^(sin|cos|tan|ln|log|sqrt|π|abs)/.test(str)) expr = ""; else expr = (lastAnswer !== null ? String(lastAnswer) : ""); justEval = false; } expr += str; renderExpr(); }
+  function cEval() { if (!expr.trim()) return; try { const out = fmt(evaluate(expr)); outEl.textContent = out; outEl.classList.remove("err"); lastAnswer = out; justEval = true; history.unshift({ e: expr.replace(/\*/g, "×").replace(/\//g, "÷"), o: out }); history = history.slice(0, 15); try { localStorage.setItem("sd_hist", JSON.stringify(history)); } catch (e) {} renderHist(); } catch (err) { outEl.textContent = err.message || "Error"; outEl.classList.add("err"); } }
+  function renderHist() { const ul = $("histList"); if (!history.length) { ul.innerHTML = '<li class="empty">Past calculations appear here.</li>'; return; } ul.innerHTML = ""; history.forEach((h) => { const li = document.createElement("li"); const a = document.createElement("span"); a.textContent = h.e; const b = document.createElement("span"); b.className = "ho"; b.textContent = "= " + h.o; li.append(a, b); li.addEventListener("click", () => { expr = String(h.o); justEval = true; renderExpr(); outEl.textContent = h.o; outEl.classList.remove("err"); }); ul.appendChild(li); }); }
   renderHist();
   $("calcKeys").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.ins != null) cInsert(b.dataset.ins); else if (b.dataset.act === "eq") cEval(); else if (b.dataset.act === "del") { justEval = false; expr = expr.slice(0, -1); renderExpr(); } else if (b.dataset.act === "clear") { expr = ""; justEval = false; renderExpr(); outEl.textContent = "0"; outEl.classList.remove("err"); } });
   $("angleToggle").addEventListener("click", function (e) { const b = e.target.closest("button"); if (!b) return; angleMode = b.dataset.ang; [...this.children].forEach((c) => c.classList.toggle("on", c === b)); });
-
   document.addEventListener("keydown", (e) => {
     if (activePanel !== "calc") return;
     const tag = (e.target.tagName || "").toLowerCase();
@@ -216,11 +221,7 @@
   if (!snippets) { snippets = [{ id: sid(), name: "Working shown", key: "w", text: "Here's my working:\n" }, { id: sid(), name: "Final answer", key: "a", text: "Final answer: " }]; saveSnips(); }
   function sid() { return Math.random().toString(36).slice(2, 9); }
   function saveSnips() { try { localStorage.setItem("sd_snips", JSON.stringify(snippets)); } catch (e) {} }
-  function copyText(t) {
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast("Copied — paste with ⌘V")).catch(() => fallbackCopy(t));
-    else fallbackCopy(t);
-  }
-  function fallbackCopy(t) { const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); toast("Copied — paste with ⌘V"); } catch (e) { toast("Couldn't copy"); } document.body.removeChild(ta); }
+  function copyText(t) { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast("Copied — paste with ⌘V")).catch(() => fb(t)); else fb(t); function fb(x) { const ta = document.createElement("textarea"); ta.value = x; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); toast("Copied — paste with ⌘V"); } catch (e) { toast("Couldn't copy"); } document.body.removeChild(ta); } }
   function renderSnips() {
     const list = $("snipList"); list.innerHTML = "";
     if (!snippets.length) { list.innerHTML = '<p class="muted small">No snippets yet.</p>'; return; }
@@ -250,56 +251,61 @@
     const hit = snippets.find((s) => s.key === k); if (!hit) return;
     e.preventDefault();
     const el = document.activeElement, tag = (el && el.tagName || "").toLowerCase();
-    if (el && (tag === "input" || tag === "textarea") && !el.readOnly) {
-      const a = el.selectionStart, b = el.selectionEnd; el.value = el.value.slice(0, a) + hit.text + el.value.slice(b); el.selectionStart = el.selectionEnd = a + hit.text.length; toast("Inserted “" + (hit.name || "snippet") + "”");
-    } else copyText(hit.text);
+    if (el && (tag === "input" || tag === "textarea") && !el.readOnly) { const a = el.selectionStart, b = el.selectionEnd; el.value = el.value.slice(0, a) + hit.text + el.value.slice(b); el.selectionStart = el.selectionEnd = a + hit.text.length; toast("Inserted “" + (hit.name || "snippet") + "”"); }
+    else copyText(hit.text);
   });
 
   /* ================= SETTINGS ================= */
-  $("getKey").addEventListener("click", (e) => { e.preventDefault(); window.desk.openExternal("https://console.anthropic.com/settings/keys"); });
+  function hasKey() { return !!((settings.provider === "groq" ? settings.groqKey : settings.anthropicKey) || "").trim(); }
+  function fillSettings() {
+    $("provider").value = settings.provider || "anthropic";
+    $("anthropicKey").value = settings.anthropicKey || "";
+    $("groqKey").value = settings.groqKey || "";
+    $("anthropicModel").value = settings.anthropicModel || "claude-sonnet-5-5";
+    $("groqModel").value = settings.groqModel || "meta-llama/llama-4-scout-17b-16e-instruct";
+    $("homepage").value = settings.homepage || "https://www.cuemath.com/";
+    syncProvBlocks();
+  }
+  function syncProvBlocks() {
+    const p = $("provider").value;
+    document.querySelectorAll(".prov-block").forEach((b) => { b.hidden = b.dataset.prov !== p; });
+  }
+  $("provider").addEventListener("change", syncProvBlocks);
+  document.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); window.desk.openExternal(a.dataset.link); }));
   $("saveSettings").addEventListener("click", async () => {
-    const patch = { apiKey: $("apiKey").value.trim(), model: $("model").value, homepage: $("homepage").value.trim() || "https://www.cuemath.com/" };
+    const patch = {
+      provider: $("provider").value,
+      anthropicKey: $("anthropicKey").value.trim(),
+      groqKey: $("groqKey").value.trim(),
+      anthropicModel: $("anthropicModel").value,
+      groqModel: $("groqModel").value,
+      homepage: $("homepage").value.trim() || "https://www.cuemath.com/"
+    };
     settings = await window.desk.settings.set(patch);
-    $("savedMsg").hidden = false; setTimeout(() => ($("savedMsg").hidden = true), 1500);
-    $("keyWarn").hidden = !!settings.apiKey;
-    toast("Settings saved");
+    $("keyWarn").hidden = hasKey();
+    notify("good", "info", "Settings saved", (settings.provider === "groq" ? "Using Groq" : "Using Claude") + (hasKey() ? " — tutor ready." : " — add a key to finish."));
   });
 
   /* ================= TUTOR ================= */
   const chat = $("chat"), tutorInput = $("tutorInput"), sendBtn = $("sendBtn"), attachRow = $("attachRow");
-  const messages = []; // API-shaped conversation
-  let pending = []; // {dataUrl, media_type, base64}
-  let busy = false;
-
+  const messages = []; let pending = []; let busy = false;
   function autoGrow() { tutorInput.style.height = "auto"; tutorInput.style.height = Math.min(tutorInput.scrollHeight, 120) + "px"; }
   tutorInput.addEventListener("input", autoGrow);
-
   function pushImage(dataUrl) {
     const media_type = dataUrl.slice(5, dataUrl.indexOf(";"));
-    const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    const data = dataUrl.slice(dataUrl.indexOf(",") + 1);
     if (pending.length >= 4) { toast("Up to 4 images"); return; }
-    pending.push({ dataUrl, media_type, base64 }); renderAttach();
+    pending.push({ dataUrl, media_type, data }); renderAttach();
   }
-  function renderAttach() {
-    attachRow.innerHTML = "";
-    pending.forEach((p, i) => { const c = document.createElement("span"); c.className = "chip"; const s = document.createElement("span"); s.textContent = "image " + (i + 1); const x = document.createElement("button"); x.textContent = "×"; x.addEventListener("click", () => { pending.splice(i, 1); renderAttach(); }); c.append(s, x); attachRow.appendChild(c); });
-  }
-
+  function renderAttach() { attachRow.innerHTML = ""; pending.forEach((p, i) => { const c = document.createElement("span"); c.className = "chip"; const s = document.createElement("span"); s.textContent = "image " + (i + 1); const x = document.createElement("button"); x.textContent = "×"; x.addEventListener("click", () => { pending.splice(i, 1); renderAttach(); }); c.append(s, x); attachRow.appendChild(c); }); }
   $("attachBtn").addEventListener("click", () => $("fileInput").click());
-  $("fileInput").addEventListener("change", (e) => {
-    [...e.target.files].forEach((f) => { const r = new FileReader(); r.onload = () => pushImage(r.result); r.readAsDataURL(f); });
-    e.target.value = "";
-  });
+  $("fileInput").addEventListener("change", (e) => { [...e.target.files].forEach((f) => { const r = new FileReader(); r.onload = () => pushImage(r.result); r.readAsDataURL(f); }); e.target.value = ""; });
   $("capBtn").addEventListener("click", async () => {
     if (!viewReady) { toast("Page not ready yet"); return; }
-    try { const img = await view.capturePage(); pushImage(img.toDataURL()); toast("Screen captured — add a question and Ask"); }
+    try { const img = await view.capturePage(); pushImage(img.toDataURL()); notify("good", "info", "Screen captured", "Add a question and tap Ask."); }
     catch (err) { toast("Couldn't capture the screen"); }
   });
-  tutorInput.addEventListener("paste", (e) => {
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    for (const it of items) if (it.type.indexOf("image") === 0) { const f = it.getAsFile(); if (f) { const r = new FileReader(); r.onload = () => pushImage(r.result); r.readAsDataURL(f); e.preventDefault(); } }
-  });
-
+  tutorInput.addEventListener("paste", (e) => { const items = (e.clipboardData && e.clipboardData.items) || []; for (const it of items) if (it.type.indexOf("image") === 0) { const f = it.getAsFile(); if (f) { const r = new FileReader(); r.onload = () => pushImage(r.result); r.readAsDataURL(f); e.preventDefault(); } } });
   function addBubble(who, text, imgs) {
     const intro = $("tutorIntro"); if (intro) intro.remove();
     const w = document.createElement("div"); w.className = "msg " + (who === "me" ? "me" : "ai");
@@ -308,31 +314,26 @@
     const b = document.createElement("div"); b.className = "bubble"; b.textContent = text; w.appendChild(b);
     chat.appendChild(w); chat.scrollTop = chat.scrollHeight; return b;
   }
-
   async function ask() {
     if (busy) return;
     const text = tutorInput.value.trim(); const imgs = pending.slice();
     if (!text && !imgs.length) { toast("Type a question or add an image"); return; }
-    if (!settings.apiKey) { $("keyWarn").hidden = false; toast("Add your API key in Settings first"); openPanel("settings"); return; }
-
+    if (!hasKey()) { $("keyWarn").hidden = false; notify("warn", "warn", "No API key", "Add a " + (settings.provider === "groq" ? "Groq" : "Claude") + " key in Settings to use the tutor."); openPanel("settings"); return; }
     busy = true; sendBtn.disabled = true; sendBtn.textContent = "…";
     addBubble("me", text || "(see image)", imgs);
-
-    const content = [];
-    imgs.forEach((p) => content.push({ type: "image", source: { type: "base64", media_type: p.media_type, data: p.base64 } }));
-    content.push({ type: "text", text: text || "Please read and solve the math problem shown in the image, step by step." });
-    messages.push({ role: "user", content });
-
+    const parts = [];
+    imgs.forEach((p) => parts.push({ type: "image", media_type: p.media_type, data: p.data }));
+    parts.push({ type: "text", text: text || "Please read and solve the math problem shown in the image, step by step." });
+    messages.push({ role: "user", parts });
     tutorInput.value = ""; autoGrow(); pending = []; renderAttach();
     const bubble = addBubble("ai", "Thinking…");
-
     try {
-      const res = await window.desk.ai({ messages, model: settings.model });
-      if (res.ok) { bubble.textContent = res.text; messages.push({ role: "assistant", content: res.text }); }
+      const res = await window.desk.ai({ messages });
+      if (res.ok) { bubble.textContent = res.text; messages.push({ role: "assistant", parts: [{ type: "text", text: res.text }] }); }
       else {
         messages.pop();
-        if (res.error === "no-key") { bubble.textContent = "Add your Claude API key in ⚙️ Settings to use the tutor."; openPanel("settings"); }
-        else if (res.error === "api") bubble.textContent = "The API said: " + (res.message || "error") + "\n(Check your key and model in Settings.)";
+        if (res.error === "no-key") { bubble.textContent = "Add your API key in Settings to use the tutor."; openPanel("settings"); }
+        else if (res.error === "api") bubble.textContent = "The " + (res.provider === "groq" ? "Groq" : "Claude") + " API said:\n" + (res.message || "error") + "\n\n(Check your key and model in Settings.)";
         else bubble.textContent = "Couldn't reach the tutor: " + (res.message || "network error");
       }
     } catch (err) { messages.pop(); bubble.textContent = "Something went wrong: " + String(err); }
