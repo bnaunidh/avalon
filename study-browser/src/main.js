@@ -224,6 +224,20 @@ ipcMain.handle("ai:ask", async (e, payload) => {
   }
 });
 
+// List the Groq models this key can actually use (for the Settings picker).
+ipcMain.handle("groq:models", async () => {
+  const s = readSettings();
+  const key = (s.groqKey || "").trim();
+  if (!key) return { ok: false, message: "No Groq key entered." };
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", { headers: { "authorization": "Bearer " + key } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, message: (data && data.error && data.error.message) || ("HTTP " + res.status) };
+    const ids = Array.isArray(data.data) ? data.data.map((m) => m.id).filter(Boolean).sort() : [];
+    return { ok: true, ids };
+  } catch (err) { return { ok: false, message: String(err && err.message || err) }; }
+});
+
 // Quick connectivity/key check for the Settings "Test" button.
 ipcMain.handle("ai:test", async () => {
   const s = readSettings();

@@ -294,6 +294,19 @@
     $("keyWarn").hidden = hasKey();
     notify("good", "info", "Settings saved", (settings.provider === "groq" ? "Using Groq" : "Using Claude") + (hasKey() ? " — tutor ready." : " — add a key to finish."));
   });
+  $("loadModels").addEventListener("click", async () => {
+    await window.desk.settings.set({ groqKey: $("groqKey").value.trim() });
+    const btn = $("loadModels"); btn.textContent = "Loading…"; btn.disabled = true;
+    const res = await window.desk.groqModels();
+    btn.textContent = "Load my models"; btn.disabled = false;
+    if (res.ok && res.ids && res.ids.length) {
+      const dl = $("groqModelList"); dl.innerHTML = "";
+      res.ids.forEach((id) => { const o = document.createElement("option"); o.value = id; dl.appendChild(o); });
+      notify("good", "info", "Models loaded", res.ids.length + " models available — click the field to pick one.");
+    } else {
+      notify("warn", "warn", "Couldn't load models", res.message || "Check your Groq key.");
+    }
+  });
   $("testKey").addEventListener("click", async () => {
     const msg = $("testMsg"); msg.textContent = "Testing…"; msg.style.color = "var(--muted)";
     // Save current field values first so the test uses them.

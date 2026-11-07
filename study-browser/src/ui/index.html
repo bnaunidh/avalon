@@ -209,12 +209,12 @@
                 </label>
                 <label class="fld">
                   <span>Model</span>
-                  <select id="groqModel">
-                    <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout — vision, fast</option>
-                    <option value="meta-llama/llama-4-maverick-17b-128e-instruct">Llama 4 Maverick — vision, capable</option>
-                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B — text only, fast</option>
-                  </select>
-                  <small class="muted">Pick a vision model to use Capture screen / image attachments.</small>
+                  <div class="crow">
+                    <input id="groqModel" list="groqModelList" placeholder="e.g. llama-3.1-8b-instant" spellcheck="false" autocomplete="off" style="flex:1">
+                    <button class="mini" id="loadModels" type="button">Load my models</button>
+                  </div>
+                  <datalist id="groqModelList"></datalist>
+                  <small class="muted">Click <b>Load my models</b> to list what your key can use. For Capture screen / image attachments, pick a model that supports vision.</small>
                 </label>
               </div>
 

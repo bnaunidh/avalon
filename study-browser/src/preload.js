@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("desk", {
 
   ai: (payload) => ipcRenderer.invoke("ai:ask", payload),
   testKey: () => ipcRenderer.invoke("ai:test"),
+  groqModels: () => ipcRenderer.invoke("groq:models"),
 
   // Set desired A/V state; main broadcasts it to every frame of the embedded site.
   av: (state) => ipcRenderer.send("av:set", state),
