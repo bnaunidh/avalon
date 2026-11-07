@@ -1,5 +1,5 @@
 "use strict";
-const { app, BrowserWindow, session, ipcMain, shell, Menu } = require("electron");
+const { app, BrowserWindow, session, ipcMain, shell, Menu, desktopCapturer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -85,9 +85,34 @@ function createWindow() {
 // Turning your OWN mic/camera off is done live in site-preload.js (track.enabled).
 function configureGuestSession() {
   const ses = session.fromPartition("persist:web");
-  const ALLOW = new Set(["media", "fullscreen", "clipboard-read", "clipboard-sanitized-write", "notifications", "pointerLock"]);
+  const ALLOW = new Set(["media", "display-capture", "fullscreen", "clipboard-read", "clipboard-sanitized-write", "notifications", "pointerLock"]);
   ses.setPermissionRequestHandler((wc, permission, cb) => cb(ALLOW.has(permission)));
   ses.setPermissionCheckHandler((wc, permission) => ALLOW.has(permission));
+
+  // Screen sharing: Cuemath calls getDisplayMedia; without a handler it is
+  // auto-denied. Use the native macOS picker where available, otherwise grant
+  // the primary screen so sharing just works.
+  try {
+    ses.setDisplayMediaRequestHandler((request, callback) => {
+      desktopCapturer.getSources({ types: ["screen", "window"] }).then((sources) => {
+        if (!sources || !sources.length) { callback({}); return; }
+        const screen = sources.find((s) => (s.id || "").startsWith("screen:")) || sources[0];
+        const grant = { video: screen };
+        if (process.platform === "win32") grant.audio = "loopback";
+        callback(grant);
+      }).catch(() => callback({}));
+    }, { useSystemPicker: true });
+  } catch (e) {
+    // Older Electron without options arg
+    try {
+      ses.setDisplayMediaRequestHandler((request, callback) => {
+        desktopCapturer.getSources({ types: ["screen", "window"] }).then((sources) => {
+          const screen = (sources || []).find((s) => (s.id || "").startsWith("screen:")) || (sources || [])[0];
+          callback(screen ? { video: screen } : {});
+        }).catch(() => callback({}));
+      });
+    } catch (e2) {}
+  }
   // Drop Content-Security-Policy so our in-page mic/camera hook can be injected
   // into the real page world (including the call iframe).
   ses.webRequest.onHeadersReceived((details, cb) => {
